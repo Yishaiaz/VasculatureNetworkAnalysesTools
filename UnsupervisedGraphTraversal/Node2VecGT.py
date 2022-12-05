@@ -123,45 +123,73 @@ class Node2VecGT:
 
 
 def alias_setup(probs):
-	'''
-	Compute utility lists for non-uniform sampling from discrete distributions.
-	Refer to https://hips.seas.harvard.edu/blog/2013/03/03/the-alias-method-efficient-sampling-with-many-discrete-outcomes/
-	for details
-	'''
-	K = len(probs)
-	q = np.zeros(K)
-	J = np.zeros(K, dtype=np.int)
+    '''
+    Compute utility lists for non-uniform sampling from discrete distributions.
+    Refer to https://hips.seas.harvard.edu/blog/2013/03/03/the-alias-method-efficient-sampling-with-many-discrete-outcomes/
+    for details
+    '''
+    K = len(probs)
+    q = np.zeros(K)
+    J = np.zeros(K, dtype=np.int)
 
-	smaller = []
-	larger = []
-	for kk, prob in enumerate(probs):
-	    q[kk] = K*prob
-	    if q[kk] < 1.0:
-	        smaller.append(kk)
-	    else:
-	        larger.append(kk)
+    smaller = []
+    larger = []
+    for kk, prob in enumerate(probs):
+        q[kk] = K*prob
+        if q[kk] < 1.0:
+            smaller.append(kk)
+        else:
+            larger.append(kk)
 
-	while len(smaller) > 0 and len(larger) > 0:
-	    small = smaller.pop()
-	    large = larger.pop()
+    while len(smaller) > 0 and len(larger) > 0:
+        small = smaller.pop()
+        large = larger.pop()
 
-	    J[small] = large
-	    q[large] = q[large] + q[small] - 1.0
-	    if q[large] < 1.0:
-	        smaller.append(large)
-	    else:
-	        larger.append(large)
+        J[small] = large
+        q[large] = q[large] + q[small] - 1.0
+        if q[large] < 1.0:
+            smaller.append(large)
+        else:
+            larger.append(large)
 
-	return J, q
+    return J, q
 
 def alias_draw(J, q):
-	'''
-	Draw sample from a non-uniform discrete distribution using alias sampling.
-	'''
-	K = len(J)
+    '''
+    Draw sample from a non-uniform discrete distribution using alias sampling.
+    '''
+    K = len(J)
 
-	kk = int(np.floor(np.random.rand()*K))
-	if np.random.rand() < q[kk]:
-	    return kk
-	else:
-	    return J[kk]
+    kk = int(np.floor(np.random.rand()*K))
+    if np.random.rand() < q[kk]:
+        return kk
+    else:
+        return J[kk]
+
+
+def learn_embeddings(walks):
+    '''
+    Learn embeddings by optimizing the Skipgram objective using SGD.
+    '''
+    walks = [map(str, walk) for walk in walks]
+    model = Word2Vec(walks, size=args.dimensions, window=args.window_size, min_count=0, sg=1, workers=args.workers,
+                     iter=args.iter)
+    model.save_word2vec_format(args.output)
+
+    return
+
+
+def main(args):
+    '''
+    Pipeline for representational learning for all nodes in a graph.
+    '''
+    # nx_G = read_graph()
+    # G = node2vec.Graph(nx_G, args.directed, args.p, args.q)
+    # G.preprocess_transition_probs()
+    # walks = G.simulate_walks(args.num_walks, args.walk_length)
+    # learn_embeddings(walks)
+
+
+# if __name__ == "__main__":
+#     args = ()
+#     main(args)
