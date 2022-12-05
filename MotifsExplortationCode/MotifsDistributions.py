@@ -127,9 +127,9 @@ def get_motif_properties(graph: Graph, motif_vertices_indices: List[int],
     # edge_radiis = [graph.edge_properties['radii'][e] for e in itertools.combinations(motif_vertices_indices, 2)]
     # edge_lengths = [graph.edge_properties['length'][(motif_vertices_indices[v_idx], motif_vertices_indices[v_idx+1])] for v_idx in range(len(motif_vertices_indices[:-1]))]
 
-    # todo: get all edges between motif vertices.
-    # todo: define all spatial and morphological properties as a key for each motif.
-    # todo: define spatial motifs definition as a tolerance based definition.
+    # todo: 1. get all edges between motif vertices.
+    #  2. define all spatial and morphological properties as a key for each motif.
+    #  3. define spatial motifs definition as a tolerance based definition.
     return motif_edge_properties, motif_vertex_properties
 
 
