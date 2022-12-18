@@ -39,15 +39,16 @@ def graph_edge_direction(_g: Graph) -> list[float]:
     :return:
     List of 3D coords : list<list<float>>
     """
-    directions = []
+    directs = []
     for _e in _g.edges():
         c_1, c_2 = _g.vp['coordinates'][_e.source()], _g.vp['coordinates'][_e.target()]
         dist = calc_3d_dist(c_2, c_1)
         if dist != 0:
-            directions.append((c_2 - c_1)/dist)  # normalized
+            directs.append([(ax_c1 - ax_c2)/dist for ax_c1, ax_c2 in zip(c_1, c_2)]) # normalized
         else:
-            directions.append([0.0, 0.0, 0.0])  # self loop
-    return directions
+            directs.append([0.0, 0.0, 0.0])  # self loop
+            print("found self loop when calculating edge direction")
+    return directs
 
 
 def get_node_attributes_dist_N(v: Vertex) -> dict[str, any]:
@@ -70,16 +71,13 @@ def add_node_property(_g: Graph, prop_lis: list):
     _g.edge_properties['new_prop'] = new_prop
 
 
-def calculate_basic_properties(_g: Graph):
+def calculate_basic_graph_properties(_g: Graph):
     '''
     return num edges, num of vertices, loops, num artery,
     :param _g:
     :return:
     '''
-    print(_g.graph_properties)
-    basic_feat = {}
-    basic_feat["n_edges"] = _g.num_edges()
-    basic_feat["n_vertices"] = _g.num_vertices()
+    basic_feat = {"n_edges": _g.num_edges(), "n_vertices": _g.num_vertices()}
     return basic_feat
 
 
@@ -138,18 +136,23 @@ directions = graph_edge_direction(g)
 # calculating new properties
 
 g.edge_properties["prolif"] = g.new_edge_property("float")
-g.edge_properties["direction"] = g.new_edge_property("vector<double>")
+#g.edge_properties["direction"] = g.new_edge_property("vector<double>")
+g.edge_properties["x_direction"] = g.new_edge_property("float")
+g.edge_properties["y_direction"] = g.new_edge_property("float")
+g.edge_properties["z_direction"] = g.new_edge_property("float")
 for i, e in enumerate(g.edges()):
     g.edge_properties["prolif"][e] = proliferation[i]
-    g.edge_properties["direction"][e] = directions[i]
+    g.edge_properties["x_direction"][e] = directions[i][0]
+    g.edge_properties["y_direction"][e] = directions[i][1]
+    g.edge_properties["z_direction"][e] = directions[i][2]
 
 g_features = []
 for v in g.get_vertices():
     eg = ego_net_depth_N(g, v, 4) #get subgraph on depth n from vertex v
     features_dict = {"vertex": ["radii"],
-                     "edge": ["radii", "length", "artery_binary", "prolif"]}  # mean_binary artery should give fraction
+                     "edge": ["radii", "length", "artery_binary", "prolif", "x_direction", "y_direction", "z_direction"]}  # mean_binary artery should give fraction
     g_features.append(calculate_graph_properties(eg, features_dict))
-    # calculate_basic_properties()
+    g_features.append(calculate_basic_graph_properties(eg))
 
 #plt.subplot(3,1,1)
 plt.hist(proliferation, bins="auto")
