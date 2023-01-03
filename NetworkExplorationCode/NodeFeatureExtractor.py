@@ -5,6 +5,8 @@ from graph_tool import topology, draw
 import matplotlib.pyplot as plt
 import random
 from graph_tool import Graph, Vertex, EdgePropertyMap
+import pandas as pd
+from tqdm import tqdm
 
 
 def calc_3d_dist(c_1: list[float], c_2: list[float]) -> int:
@@ -24,6 +26,7 @@ def graph_edge_proliferation(_g: Graph, loops: bool = True) -> list[float]:
     List of distance/length : list<float>
     """
     prolif = []
+    print("calculating graph proliferation: ")
     for _e in _g.edges():
         s_coords = _g.vp['coordinates'][_e.source()]
         t_coords = _g.vp['coordinates'][_e.target()]
@@ -40,19 +43,24 @@ def graph_edge_direction(_g: Graph) -> list[float]:
     List of 3D coords : list<list<float>>
     """
     directs = []
-    for _e in _g.edges():
+    print("calculating graph direction: ")
+    num_e = _g.num_edges()
+    for _e in tqdm(_g.edges(), total=num_e):
         c_1, c_2 = _g.vp['coordinates'][_e.source()], _g.vp['coordinates'][_e.target()]
         dist = calc_3d_dist(c_2, c_1)
         if dist != 0:
-            directs.append([(ax_c1 - ax_c2)/dist for ax_c1, ax_c2 in zip(c_1, c_2)]) # normalized
+            directs.append([(ax_c1 - ax_c2) / dist for ax_c1, ax_c2 in zip(c_1, c_2)])  # normalized
         else:
             directs.append([0.0, 0.0, 0.0])  # self loop
             print("found self loop when calculating edge direction")
     return directs
 
 
-def get_node_attributes_dist_N(v: Vertex) -> dict[str, any]:
-    pass
+def ego_net_distance_N(_g: Graph, ego: Vertex, d: int) -> Graph:
+#    sd = gt.topology.shortest_path(_g, ego, weights=_g.edge_properties["length"], max_dist=d)
+    sd = gt.topology.shortest_distance(_g, ego, weights=_g.edge_properties["length"], max_dist=d)
+    ego_g = gt.GraphView(_g, vfilt=sd.a < _g.num_vertices())
+    return ego_g
 
 
 def ego_net_depth_N(_g: Graph, ego: Vertex, n: int) -> Graph:
@@ -66,11 +74,6 @@ def draw_graph_coordinated(_g: Graph, output_path: str):
     draw.graph_draw(_g, pos=g_positions, output=output_path)
 
 
-def add_node_property(_g: Graph, prop_lis: list):
-    new_prop = _g.new_edge_property('vector<double>')
-    _g.edge_properties['new_prop'] = new_prop
-
-
 def calculate_basic_graph_properties(_g: Graph):
     '''
     return num edges, num of vertices, loops, num artery,
@@ -81,31 +84,27 @@ def calculate_basic_graph_properties(_g: Graph):
     return basic_feat
 
 
-def calculate_graph_properties(_g: Graph,
-                               properties_to_analyze: dict[str, list[str]]) \
-        -> dict[str, dict[str, float]]:
+def analyze_properties(_g: Graph, graph_name: str, component: str, properties_to_analyze: list[str]) \
+        -> dict[str, float]:
     '''
     function from @Yishaia
+    :param component: 'v' if vertex property or 'e' if edge property
     :param _g: graph to extract features from
     :param properties_to_analyze: dictionary of key 'edge' or 'vertex' and value as list of property names
     :return: a dictionary with keys 'edge' and 'vertex'
     '''
-    component_to_properties_values_dict = {}
-    for component, component_properties_to_analyze in properties_to_analyze.items():
-        component_to_properties_values_dict[component] = {}
-        component_rep = 'e' if 'edge' in component.lower() else 'v'
-        # component_g_props = _g.properties[component_rep]
-        for property_name in component_properties_to_analyze:
-            property_values = _g.properties[(component_rep, property_name)].a
-            property_mean = np.mean(property_values)
-            property_std = np.std(property_values)
-            component_to_properties_values_dict[component][f'{property_name}'] = {}
-            component_to_properties_values_dict[component][f'{property_name}']['mean'] = property_mean
-            component_to_properties_values_dict[component][f'{property_name}']['std'] = property_std
-    return component_to_properties_values_dict
+    properties_values_dict = {}
+    for property_name in properties_to_analyze:
+        property_values = _g.properties[(component, property_name)].fa  # filtered attributes only for subgraph
+        if len(property_values) != 0:
+            property_mean = float(np.mean(property_values))
+            property_std = float(np.std(property_values))
+            properties_values_dict[graph_name + '_' + component + '_' + f'{property_name}'+'_mean'] = property_mean
+            properties_values_dict[graph_name + '_' + component + '_' + f'{property_name}'+'_std'] = property_std
+    return properties_values_dict
 
 
-def preprocess_graph(_g: Graph, inplace:bool = False) -> Graph:
+def preprocess_graph(_g: Graph, inplace: bool = False) -> Graph:
     """
     MUST use on each network before all other analysis!
     removes duplicate edges and loops. Uses and returns a preprocessed copy of the graph.
@@ -120,46 +119,22 @@ def preprocess_graph(_g: Graph, inplace:bool = False) -> Graph:
     gt.stats.remove_parallel_edges(_g_cpy)
     gt.stats.remove_self_loops(_g_cpy)
 
+    # Iterate over the vertices and check if they are connected
+    for ve in _g_cpy.vertices():
+        if ve == _g_cpy.num_vertices():
+            break
+        # Check if the vertex has any incoming or outgoing edges
+        if ve.in_degree() == 0 and ve.out_degree() == 0:
+            _g_cpy.remove_vertex(ve)
+    _g_cpy = Graph(_g_cpy, prune=True)
     return _g_cpy
 
 
-# loading graphs
-gs = gt.load_graph("/Users/leahbiram/Desktop/vasculature_data/subgraph_area_Striatum.gt")  # _Hypothalamus/ _Isocortex
-print("loaded graphs (Striatum):")
-
-g = preprocess_graph(gs) # preproccess does not copy properties!
-#sub = gt.Graph(eg, directed=False, prune=True)
-
-proliferation = graph_edge_proliferation(g)
-directions = graph_edge_direction(g)
-
-# calculating new properties
-
-g.edge_properties["prolif"] = g.new_edge_property("float")
-#g.edge_properties["direction"] = g.new_edge_property("vector<double>")
-g.edge_properties["x_direction"] = g.new_edge_property("float")
-g.edge_properties["y_direction"] = g.new_edge_property("float")
-g.edge_properties["z_direction"] = g.new_edge_property("float")
-for i, e in enumerate(g.edges()):
-    g.edge_properties["prolif"][e] = proliferation[i]
-    g.edge_properties["x_direction"][e] = directions[i][0]
-    g.edge_properties["y_direction"][e] = directions[i][1]
-    g.edge_properties["z_direction"][e] = directions[i][2]
-
-g_features = []
-for v in g.get_vertices():
-    eg = ego_net_depth_N(g, v, 4) #get subgraph on depth n from vertex v
-    features_dict = {"vertex": ["radii"],
-                     "edge": ["radii", "length", "artery_binary", "prolif", "x_direction", "y_direction", "z_direction"]}  # mean_binary artery should give fraction
-    g_features.append(calculate_graph_properties(eg, features_dict))
-    g_features.append(calculate_basic_graph_properties(eg))
-
-#plt.subplot(3,1,1)
-plt.hist(proliferation, bins="auto")
-plt.show()
-
-
-# graph draw options
-#draw_graph_coordinated(g, "../GraphVisualization/graph-ego4_proc.pdf")
-# draw.graph_draw(g, pos=g_positions, edge_pen_width=edge_prolif, output="graph-Str2.pdf")
-#            ,edge_control_points = control)  # some curvy edges
+def vertex_disconnected(_g: Graph, _v: int) -> bool:
+    '''
+    checking if vertex v is connected to any other vertices in graph by an edge
+    :param _g:  the graph
+    :param _v: the vertex index in graph
+    :return: bool, true if disconnected, false if connected
+    '''
+    return _g.vertex(_v).in_degree() == 0 and _g.vertex(_v).out_degree() == 0
