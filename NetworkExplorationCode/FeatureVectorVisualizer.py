@@ -73,8 +73,7 @@ def vasc_pca(data: pd.DataFrame, features: list[str]):
     fig.show()
 
 
-g_file_names = ["subgraph_area_Striatum", "subgraph_area_Hypothalamus", "subgraph_area_pyramid",
-                "subgraph_area_Claustrum", "subgraph_area_corpus_callosum"]  # "subgraph_area_Isocortex",firstGBMscanGraph
+g_file_names = ["subgraph_area_corpus_callosum"] #"subgraph_area_Striatum", "subgraph_area_Hypothalamus", "subgraph_area_pyramid","subgraph_area_Claustrum", "subgraph_area_corpus_callosum", "subgraph_area_Isocortex",firstGBMscanGraph
 features_dfs = []
 for graph_name in g_file_names:
     df = pd.read_pickle("../ExtractedFeatureVectors/" + graph_name + ".csv")
@@ -83,7 +82,7 @@ for graph_name in g_file_names:
     features_dfs.append(df)
 merged_df = pd.concat(features_dfs)
 all_features = exclude_one_feature(merged_df, "brain_region")
-chosen_features = ["ego_depth_4_e_x_direction_mean", "ego_depth_4_e_y_direction_mean", "ego_depth_4_e_z_direction_mean"]
+chosen_features = ["ego_depth_4_e_prolif_mean"]
 
 #stats = ks_2samp(features_dfs[0][feature], features_dfs[1][feature]) #graph regions 0 and 3
 #print(stats)
