@@ -202,8 +202,8 @@ def calc_embeddings_df_for_regions_lst(
 
             if verbose > 1:
                 print("Calculating distances to target objects")
-            new_vp_key = add_vertex_distance_to_closest_target_object(_g=region_graph,
-                                                                      target_object_coordinates_array=cancer_cells_in_graph_array_only_coordinates)
+            new_vp_key = add_vertex_property_to_target_object(_g=region_graph,
+                                                              target_object_coordinates_array=cancer_cells_in_graph_array_only_coordinates)
             vertices_min_dist_to_cancer_cells = region_graph.vp[new_vp_key].a
             if verbose > 2:
                 print("Normalizing distances to target objects")

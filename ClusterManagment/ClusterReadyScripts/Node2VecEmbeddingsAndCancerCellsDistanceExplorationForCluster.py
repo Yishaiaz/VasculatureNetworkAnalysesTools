@@ -157,8 +157,8 @@ def calc_min_cancer_cells_distance_and_node2vec_embeddings(
                 log_text = "Calculating distances to target objects"
                 f.write(log_text)
 
-        new_vp_key = add_vertex_distance_to_closest_target_object(_g=region_graph,
-                                                                  target_object_coordinates_array=cancer_cells_in_graph_array_only_coordinates)
+        new_vp_key = add_vertex_property_to_target_object(_g=region_graph,
+                                                          target_object_coordinates_array=cancer_cells_in_graph_array_only_coordinates)
         vertices_min_dist_to_cancer_cells = region_graph.vp[new_vp_key].a
         if kwargs.get('verbose', 0) > 2:
             with open(LOG_file_PATH, 'a') as f:
