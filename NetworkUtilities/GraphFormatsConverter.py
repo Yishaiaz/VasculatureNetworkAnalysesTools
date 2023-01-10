@@ -19,6 +19,9 @@ import plotly.graph_objs as go
 def convert_graph_tool_to_igraph(_g: gt.Graph,
                                  include_attributes: bool = False,
                                  **kwargs) -> ig.Graph:
+    # todo: 1 - add the vertex and edges properties to the igraph instance.
+    # todo: 2 - add the ability to directly save the new graph instance.
+
     all_gt_edges = [(int(_edge.source()), int(_edge.target())) for _edge in _g.edges()]
     ig_graph = ig.Graph(all_gt_edges, directed=_g.is_directed())
     if _g.num_edges() == ig_graph.ecount():
