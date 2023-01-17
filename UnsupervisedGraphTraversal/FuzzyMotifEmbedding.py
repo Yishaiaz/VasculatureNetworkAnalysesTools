@@ -15,12 +15,13 @@ from node2vec.node2vec import *
 from node2vec.edges import *
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-sys.path.append("/Users/yishaiazabary/PycharmProjects/University/BrainVasculatureGraphs")
+from Miscellaneous.WorkingEnvironmentUtilities import get_project_root_dir
+sys.path.append(get_project_root_dir())
 from NetworkUtilities.GraphAttributesEnrichment import *
 
 
 def get_cancer_cells_counts_in_regions(cancer_cells_array_path: Union[
-    str, os.PathLike] = '/Users/yishaiazabary/PycharmProjects/University/BrainVasculatureGraphs/Data/1_cells.npy',
+    str, os.PathLike] = os.path.join(get_project_root_dir(), "Data", '1_cells.npy'),
                                        return_sorted: bool = True,
                                        **kwargs):
     cancer_cells_array = np.load(cancer_cells_array_path)
@@ -285,7 +286,11 @@ if __name__ == '__main__':
     calculate_gt_graph_node_embeddings(
         graph=gbm_graph,
         edges_embedders_method=None,
-        save_node_embeddings_path=f"/Users/yishaiazabary/PycharmProjects/University/BrainVasculatureGraphs/UnsupervisedGraphTraversal/vertex_embeddings/GBM_1st_Graph/SAMPLE_GBM_node2vec_vertices_embeddings_and_dimSize{embeddings_dim_size}_walkSize{walk_len}_nWalks{n_walks}.csv",
+        save_node_embeddings_path=os.path.join(get_project_root_dir(),
+                                               "UnsupervisedGraphTraversal",
+                                               "vertex_embeddings",
+                                               "GBM_1st_Graph",
+                                               f"/SAMPLE_GBM_node2vec_vertices_embeddings_and_dimSize{embeddings_dim_size}_walkSize{walk_len}_nWalks{n_walks}.csv"),
         vertices_embedding_module=Node2Vec,
         embd_dims=embeddings_dim_size,
         walks_len=walk_len,
