@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 from scipy.spatial import cKDTree
 from graph_tool.all import *
 import networkx as nx
-from GraphToolFormatConverters import *
 
+from NetworkUtilities.GraphToolFormatConverters import *
 
 class NetworkVoxelSearcher:
     def __init__(self, complete_network: Union[gt.Graph, nx.Graph], **kwargs):
@@ -87,6 +87,7 @@ class NetworkVoxelSearcher:
             nodes_indices_within_distance.remove(target_node_idx)
 
         return nodes_indices_within_distance
+
 
 
 if __name__ == '__main__':
