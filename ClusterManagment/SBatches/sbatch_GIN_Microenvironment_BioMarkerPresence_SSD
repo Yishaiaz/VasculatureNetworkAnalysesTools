@@ -41,5 +41,5 @@ python ${SCRIPT_PATH}    				### execute python script
 echo "done with ${SCRIPT_NAME} python script"
 #SSD
 cp -r $SLURM_SCRATCH_DIR $SLURM_SUBMIT_DIR
-echo -e "COPIED TO SLURM_SUBMIT_DIR:\t" $SLURM_JOB_NODELIST "\n\n"
+echo -e "COPIED TO SLURM_SUBMIT_DIR:\t" $SLURM_SUBMIT_DIR "\n\n"
 #/SSD
