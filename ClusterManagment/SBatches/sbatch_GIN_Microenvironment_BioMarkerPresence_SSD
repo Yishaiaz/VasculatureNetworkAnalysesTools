@@ -34,8 +34,8 @@ cp ~/GBVasculatureGraphsAnalysis/BrainVasculatureGraphData/torch_data_graph_anno
 module load anaconda				### load anaconda module (must be present when working with conda environments)
 source activate /home/yishaiaz/anaconda3/envs/torch_geo230_env				### activate a conda environment, replace my_env with your conda environment
 
-export SCRIPT_NAME=PyTorchCustomUtilitiesForCluster.py
-export SCRIPT_PATH=~/GBVasculatureGraphsAnalysis/GNN_Exploration_BIOMARKER_Presence_SCRIPTS/${SCRIPT_NAME}
+export SCRIPT_NAME=GINExperimentsManager.py
+export SCRIPT_PATH=~/VasculatureNetworkAnalysesTools/NetworkUtilities/${SCRIPT_NAME}
 echo "Working from $CWD"
 echo "started with ${SCRIPT_NAME} python script at ${SCRIPT_PATH}"
 python ${SCRIPT_PATH} --job_id ${SLURM_JOBID}   				### execute python script
