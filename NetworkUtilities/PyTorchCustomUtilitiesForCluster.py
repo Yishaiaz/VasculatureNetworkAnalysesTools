@@ -16,6 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import confusion_matrix
 import seaborn as sn
 import pandas as pd
+from ClusterLogger import CallableLogger
 from torch_geometric.loader.utils import (
     filter_custom_store,
     filter_data,
@@ -25,12 +26,15 @@ from torch_geometric.loader.utils import (
 from torch.utils.data import Subset
 from torch_geometric.utils import k_hop_subgraph
 from torch_geometric.utils import mask_to_index, index_to_mask
+from torch_geometric.loader import DataLoader, ImbalancedSampler
 from functools import reduce
 from torch_geometric.utils.convert import to_networkx
 from torch_geometric.utils.convert import from_networkx
 import matplotlib.pyplot as plt
 import networkx as nx
 
+
+print(torch.cuda.is_available())
 
 class MicroEnvironmentDataset(Dataset):
     """
@@ -67,10 +71,11 @@ class MicroEnvironmentDataset(Dataset):
 
     def __init__(self, data, num_hops, loc_attr_name, max_distance,
                  input_nodes=None, calc_items_label_func: Callable = None,
-                 k_subgraph_directed: bool = False,transform: Union[List[Callable], None] = None,
-                 device = None, root: Union[os.PathLike, str]="./MicroEnvironmentDatasets/",
+                 k_subgraph_directed: bool = False, transform: Union[List[Callable], None] = None,
+                 device=None, root: Union[os.PathLike, str] = "./MicroEnvironmentDatasets/",
                  include_node_attributes: bool = True,
                  include_edge_attributes: bool = True,
+                 logger: Callable = print,
                  **kwargs):
         super().__init__(root, transform)
         self.org_graph = copy.copy(data)
@@ -104,7 +109,34 @@ class MicroEnvironmentDataset(Dataset):
             self.org_graph.x = torch.zeros_like(self.org_graph.x, device=self.org_graph.x.device)
         if self.include_edge_attributes:
             self.org_graph.x = torch.zeros_like(self.org_graph.edge_attr,
-                                                                device=self.org_graph.edge_attr.device)
+                                                device=self.org_graph.edge_attr.device)
+
+        self.logger = logger
+    # @property
+    # def raw_file_names(self):
+    #     self.logger"raw_file_names?")
+    #     return ['2.', 'd1']
+    #
+    # @property
+    # def processed_file_names(self):
+    #     self.logger"processed_file_names?")
+    #     return ['2.', 'd1']
+    #
+    # def download(self):
+    #     self.logger"downloading?")
+    #
+    # def process(self):
+    #     self.logger"processing?")
+    def __iter__(self):
+        self.__iter_counter = 0
+        return self
+
+    def __next__(self):
+        if self.__iter_counter < self.num_nodes:
+            to_return =  self.get(self.__iter_counter)
+            self.__iter_counter += 1
+            return to_return
+        raise StopIteration
 
     def __len__(self):
         return len(self.input_nodes)
@@ -116,27 +148,30 @@ class MicroEnvironmentDataset(Dataset):
         return self.__getitem__(item)
 
     def __getitem__(self, item):
-        rand_node_index = item # torch.randint(0, self.num_nodes, (1, ))
+        rand_node_index = item  # torch.randint(0, self.num_nodes, (1, ))
         if not isinstance(item, Tensor):
             rand_node_index = torch.Tensor([rand_node_index])
         if not len(rand_node_index.shape):
             rand_node_index.unsqueeze(0)
         if self.device != 'cpu':
             rand_node_index.to(self.device)
-        if rand_node_index.dtype != torch.int:
-            rand_node_index = rand_node_index.to(torch.int)
+        if rand_node_index.dtype != torch.long or \
+                rand_node_index.dtype != torch.bool:
+            rand_node_index = rand_node_index.to(torch.long)
 
-        subgraph_node_indices, edge_index, mapping, edge_mask = k_hop_subgraph(rand_node_index, self.num_hops, self.org_graph.edge_index,
-                       relabel_nodes=self.relabel_nodes_in_k_hop, directed=self.k_subgraph_directed)
+        subgraph_node_indices, edge_index, mapping, edge_mask = k_hop_subgraph(rand_node_index, self.num_hops,
+                                                                               self.org_graph.edge_index,
+                                                                               relabel_nodes=self.relabel_nodes_in_k_hop,
+                                                                               directed=self.k_subgraph_directed)
         while len(subgraph_node_indices) <= 1:
             # subgraph is only a single node, selecting a new random node as center node of subgraph
             if self.verbose > 1:
-                print(f"node {rand_node_index} has only {len(subgraph_node_indices)} neighbors! "
+                self.logger(f"node {rand_node_index} has only {len(subgraph_node_indices)} neighbors! "
                       f"Randomly sampling a new center node")
-            rand_node_index = torch.randint(0, self.num_nodes, (1, )).to(torch.int)
+            rand_node_index = torch.randint(0, self.num_nodes, (1,)).to(torch.long)
             subgraph_node_indices, edge_index, mapping, edge_mask = k_hop_subgraph(rand_node_index, self.num_hops,
-                                                                     self.org_graph.edge_index,
-                                                                     relabel_nodes=self.relabel_nodes_in_k_hop)
+                                                                                   self.org_graph.edge_index,
+                                                                                   relabel_nodes=self.relabel_nodes_in_k_hop)
 
         # filtering the nodes and edges that are further than the max_distance constraint is not implemented correctly.
         # todo: fix it.
@@ -165,7 +200,8 @@ class MicroEnvironmentDataset(Dataset):
         subgraph_data = Data(x=subgraph_node_attr, edge_index=edge_index, edge_attr=subgraph_edge_attr,
                              num_nodes=filtered_subgraph_node_indices.size(0))
         if self.loc_attr_name is not None:
-            subgraph_pos_attr = self.org_graph.pos[filtered_subgraph_node_indices] if self.org_graph.edge_attr is not None else None
+            subgraph_pos_attr = self.org_graph.pos[
+                filtered_subgraph_node_indices] if self.org_graph.edge_attr is not None else None
             subgraph_data.pos = subgraph_pos_attr
         if self.transform is not None:
             for tran_func in self.transform:
@@ -185,14 +221,25 @@ class MicroEnvironmentDataset(Dataset):
 
     def get_distribution(self):
         label_distribution = np.array(list(self.label_distribution.values()))
-        label_distribution_norm = label_distribution/ label_distribution.max()
+        label_distribution_norm = label_distribution / label_distribution.max()
         return label_distribution_norm, label_distribution
 
     @staticmethod
+    def validate_subgraph_label_type(subgraph, required_label_type = torch.long):
+        if subgraph.y.dtype != required_label_type:
+            subgraph.y = subgraph.y.to(torch.long)
+        return subgraph
+
+    @staticmethod
     def calc_subgraph_label_by_bio_marker_presence(subgraph: Data,
-                                                   agg_func: Callable = lambda x: torch.max(x).to(torch.bool)) -> Tensor:
+                                                   agg_func: Callable = lambda x: torch.max(x).to(
+                                                       torch.bool)) -> Tensor:
         total_subgraph_y = agg_func(subgraph.single_node_label)
+        if not total_subgraph_y.shape:
+            total_subgraph_y = Tensor([total_subgraph_y]).to(torch.int64)
         subgraph.y = total_subgraph_y
+        # for sampler compatibility
+        subgraph = MicroEnvironmentDataset.validate_subgraph_label_type(subgraph)
         return subgraph
 
     @staticmethod
@@ -200,13 +247,23 @@ class MicroEnvironmentDataset(Dataset):
         labels_values_counts = torch.unique(subgraph.single_node_label, return_counts=True)
 
         if len(labels_values_counts[0]) == 1:
-            subgraph.y = labels_values_counts[0][0]
+            total_subgraph_y = labels_values_counts[0][0]
+            if not total_subgraph_y.shape:
+                total_subgraph_y = Tensor([total_subgraph_y]).to(torch.long)
+            subgraph.y = total_subgraph_y
         else:
             if labels_values_counts[1][0] >= labels_values_counts[1][1]:
-                subgraph.y = labels_values_counts[0][0]
+                total_subgraph_y = labels_values_counts[0][0]
+                if not total_subgraph_y.shape:
+                    total_subgraph_y = Tensor([total_subgraph_y])
+                subgraph.y = total_subgraph_y
             else:
-                subgraph.y = labels_values_counts[0][1]
-
+                total_subgraph_y = labels_values_counts[0][1]
+                if not total_subgraph_y.shape:
+                    total_subgraph_y = Tensor([total_subgraph_y])
+                subgraph.y = total_subgraph_y
+        # for sampler compatibility
+        subgraph = MicroEnvironmentDataset.validate_subgraph_label_type(subgraph)
         return subgraph
 
     @staticmethod
@@ -216,6 +273,9 @@ class MicroEnvironmentDataset(Dataset):
             subgraph.y = Tensor([0])
         else:
             subgraph.y = Tensor([int(labels_values_counts[0][0]) == 1])
+
+        # for sampler compatibility
+        subgraph = MicroEnvironmentDataset.validate_subgraph_label_type(subgraph)
         return subgraph
 
     def calc_target_statistics(self):
@@ -228,7 +288,7 @@ class MicroEnvironmentDataset(Dataset):
 
 def get_hist_image_as_np_array(values: Iterable,
                                x_ticks_labels: List[str] = ['0', '1'],
-                               x_label: str='Label',
+                               x_label: str = 'Label',
                                y_label: str = 'Count',
                                title: str = 'Labels Histogram'):
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -247,9 +307,11 @@ def get_hist_image_as_np_array(values: Iterable,
     image = np.frombuffer(canvas.tostring_rgb(), dtype='uint8').reshape((height, width, 3))
     return image
 
-def train(model, train_loader, validation_loader, test_loader,
+
+def train(model, train_loader, train_ds, validation_loader, test_loader,
           epochs_num: int = 100,
-          tensorboard_writer: SummaryWriter = None):
+          tensorboard_writer: SummaryWriter = None,
+          logger: Callable = print):
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(),
                                  lr=0.01,
@@ -259,20 +321,22 @@ def train(model, train_loader, validation_loader, test_loader,
     # conf_mat_info = np.zeros(
     #     (2,2), dtype=float
     # )
-    y_true = []
-    y_pred = []
     for epoch in range(epochs_num + 1):
-        print(f"Initiated epoch #{epoch}")
+        logger(f"Initiated epoch #{epoch}")
         total_loss = 0
         acc = 0
         val_loss = 0
         val_acc = 0
 
+        y_true = []
+        y_pred = []
         # Train on batches
-        preds = []
-        target = []
-        for data in tqdm.tqdm(train_loader, desc="training!"):
-
+        logger("training!")
+        if isinstance(logger, CallableLogger):
+            iter = loader
+        else:
+            iter = tqdm.tqdm(loader)
+        for data in iter:
             optimizer.zero_grad()
             _, out = model(data.x, data.edge_index, data.batch)
             data_y_as_onehot = torch.nn.functional.one_hot(data.y.to(torch.int64), num_classes=2).reshape(1, -1)
@@ -285,32 +349,34 @@ def train(model, train_loader, validation_loader, test_loader,
             optimizer.step()
             # break
 
-        cf_matrix = confusion_matrix(y_true, y_pred)
-        df_cm = pd.DataFrame(cf_matrix, #/ np.sum(cf_matrix, axis=1)[:, None],
+        cf_matrix = confusion_matrix([x[0] for x in y_true], y_pred)
+        df_cm = pd.DataFrame(cf_matrix,  # / np.sum(cf_matrix, axis=1)[:, None],
                              index=[i for i in ('0', '1')],
                              columns=[i for i in ('0', '1')])
         plt.figure(figsize=(12, 7))
         conf_mat_as_img = sn.heatmap(df_cm, annot=True).get_figure()
         if tensorboard_writer is not None:
             tensorboard_writer.add_scalar('totalLoss/train', total_loss, epoch)
-            tensorboard_writer.add_scalar('meanLoss/train', total_loss/len(train_loader), epoch)
-            tensorboard_writer.add_scalar('Accuracy/train', acc/len(train_loader), epoch)
+            tensorboard_writer.add_scalar('meanLoss/train', total_loss / len(train_loader), epoch)
+            tensorboard_writer.add_scalar('Accuracy/train', acc / len(train_loader), epoch)
             tensorboard_writer.add_figure("Train confusion matrix", conf_mat_as_img, epoch)
             # get distribution of labels in graph
             if epoch == 0:
-                labels_distribution_norm, labels_distribution = train_loader.get_distribution()
+                labels_distribution_norm, labels_distribution = train_ds.get_distribution()
                 tmp_df = pd.DataFrame(
                     {'0': [labels_distribution[0]], '1': [labels_distribution[1]]})
                 tensorboard_writer.add_figure("Train labels distributions", sn.barplot(tmp_df).get_figure())
                 # tensorboard_writer.add_figure("Train labels distributions normalize", sn.barplot(labels_distribution_norm).get_figure())
 
         # Validation
-        val_loss, val_acc, conf_mat = test(model, validation_loader)
-        df_cm = pd.DataFrame(conf_mat,# / np.sum(conf_mat, axis=1)[:, None],
+        val_loss, val_acc, conf_mat = test(model, validation_loader,
+                                           logger=logger)
+        df_cm = pd.DataFrame(conf_mat,  # / np.sum(conf_mat, axis=1)[:, None],
                              index=[i for i in ('0', '1')],
                              columns=[i for i in ('0', '1')])
         plt.figure(figsize=(12, 7))
         conf_mat_as_img = sn.heatmap(df_cm, annot=True).get_figure()
+
         if tensorboard_writer is not None:
             tensorboard_writer.add_scalar('meanLoss/val', val_loss, epoch)
             tensorboard_writer.add_scalar('Accuracy/val', float(f"{val_acc:.2f}"), epoch)
@@ -323,16 +389,19 @@ def train(model, train_loader, validation_loader, test_loader,
                 # tensorboard_writer.add_figure("Validation labels distributions normalize", sn.barplot(labels_distribution_norm).get_figure())
 
         # Print metrics every N epochs
-        if (epoch % 1 == 0):
+        if epoch % 1 == 0:
             total_loss = total_loss / len(train_loader)
             acc = acc / len(train_loader)
-            print(f'Epoch {epoch:>3} | Train Loss: {total_loss:.2f} '
+            if len(acc.shape):
+                acc = acc[0]
+            logger(f'Epoch {epoch:>3} | Train Loss: {total_loss:.2f} '
                   f'| Train Acc: {acc * 100:>5.2f}% '
                   f'| Val Loss: {val_loss:.2f} '
                   f'| Val Acc: {val_acc * 100:.2f}%')
 
-    test_loss, test_acc, conf_mat = test(model, test_loader)
-    df_cm = pd.DataFrame(conf_mat, # / np.sum(conf_mat, axis=1)[:, None],
+    test_loss, test_acc, conf_mat = test(model, test_loader,
+                                         logger=logger)
+    df_cm = pd.DataFrame(conf_mat,  # / np.sum(conf_mat, axis=1)[:, None],
                          index=[i for i in ('0', '1')],
                          columns=[i for i in ('0', '1')])
     plt.figure(figsize=(12, 7))
@@ -347,19 +416,25 @@ def train(model, train_loader, validation_loader, test_loader,
         tensorboard_writer.add_figure("Test labels distributions", sn.barplot(tmp_df).get_figure())
         # tensorboard_writer.add_figure("Test labels distributions normalize", sn.barplot(labels_distribution_norm).get_figure())
 
-    print(f'Test Loss: {test_loss:.2f} | Test Acc: {test_acc*100:.2f}%')
+    logger(f'Test Loss: {test_loss:.2f} | Test Acc: {test_acc * 100:.2f}%')
 
-    return model
+    return model, test_acc
 
 
 @torch.no_grad()
-def test(model, loader):
+def test(model, loader, logger: Callable = print):
     criterion = torch.nn.CrossEntropyLoss()
     model.eval()
     loss = 0
     acc = 0
     y_true, y_pred = [], []
-    for data in tqdm.tqdm(loader, desc="testing!"):
+
+    logger("testing!")
+    if isinstance(logger, CallableLogger):
+        iter = loader
+    else:
+        iter = tqdm.tqdm(loader)
+    for data in iter:
         _, out = model(data.x, data.edge_index, data.batch)
         data_y_as_onehot = torch.nn.functional.one_hot(data.y.to(torch.int64), num_classes=2).reshape(1, -1)
         loss += criterion(out, data_y_as_onehot.to(torch.float32))
@@ -367,13 +442,18 @@ def test(model, loader):
         y_true.append(data.y.to(torch.int32))
         y_pred.append(out[0].argmax())
         # break
-    cf_matrix = confusion_matrix(y_true, y_pred)
-    return loss/len(loader), acc/len(loader), cf_matrix
+    cf_matrix = confusion_matrix([x[0] for x in y_true], y_pred)
+
+    # if the tensor is not a scalar
+    if acc.shape:
+        acc = acc[0]
+
+    return loss / len(loader), acc / len(loader), cf_matrix
 
 
 def accuracy(pred_y, y):
     """Calculate accuracy."""
-    return pred_y == y #((pred_y == y).sum() / (len(y)) if y.shape else 1).item()
+    return pred_y == y  # ((pred_y == y).sum() / (len(y)) if y.shape else 1).item()
 
 
 import torch
@@ -394,7 +474,7 @@ def get_number_of_node_features(input_dataset: Union[Subset, Dataset]):
 class GIN(torch.nn.Module):
     """GIN"""
 
-    def __init__(self, dim_h, ds, output_dim):
+    def __init__(self, dim_h, ds, output_dim, n_hops: int = 3):
         super(GIN, self).__init__()
         ds_num_node_features = get_number_of_node_features(ds)
         self.conv1 = GINConv(
@@ -434,8 +514,9 @@ class GIN(torch.nn.Module):
 
         return h, F.log_softmax(h, dim=1)
 
+
 def partition_graph_by_regions(org_graph: Data,
-                               n_bins_per_dim: int=2,
+                               n_bins_per_dim: int = 2,
                                val_bin_idx: Union[int, None] = None,
                                test_bin_idx: int = 0) -> Union[Tuple[Data, Data], Tuple[Data, Data, Data]]:
     """
@@ -518,130 +599,151 @@ def draw_subgraphs(subgraphs_dataset, draw_lim_num: int == 2):
         plt.clf()
 
 
-
-
 if __name__ == '__main__':
+    import argparse
+    computation_device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    parser = argparse.ArgumentParser(prog='TorchGNN', description='')
+    parser.add_argument('--job_id', type=str,
+                        help='job id as string')
+    args = parser.parse_args()
+    cluster_job_id = args.job_id
+    # logger = CallableLogger(
+    #     stream_output_fpath=f'./log_{cluster_job_id}.txt',
+    #     log_entry_prefix='log:'
+    # ) # for cluster use
+    if cluster_job_id is None or cluster_job_id == '':
+        # working locally
+        logger = print # for local use
+        cluster_job_id = "local_test"
+        scrum_working_dir = os.path.join(
+            os.sep, "Users", "yishaiazabary", "PycharmProjects",
+            "University", "BrainVasculatureGraphs",
+            "Data", "GBM_Tumor_Graphs"
+        )
+    else:
+        # working on cluster
+        logger = CallableLogger(
+            stream_output_fpath=f'./log_{cluster_job_id}.txt',
+            log_entry_prefix='log:'
+        ) # for cluster use
+        scrum_working_dir = f"/scratch/yishaiaz@auth.ad.bgu.ac.il/{cluster_job_id}"
+        logger(f"scrum_working_dir = {scrum_working_dir}")
+    logger(f"working on device: {computation_device}")
+    torch_geometric_graph_data = torch.load(
+        os.path.join(scrum_working_dir, "torch_data_graph_annotated_subgraph_with_labels"))
 
-    #
-    # target_var_attr_name = 'artery_binary'
-    #
-    # nx_graph = nx.read_gml("/Users/yishaiazabary/PycharmProjects/University/BrainVasculatureGraphs/Data/GBM_Tumor_Graphs/graph_annotated_as_nx.gml.gz")
-    # nx_graph = nx.convert_node_labels_to_integers(nx_graph)
-
-    # torch_geometric_graph_data = from_networkx(G=nx_graph,
-    #                                            group_node_attrs=["radii"],#, "coordinates"],
-    #                                            # ,'artery_binary', 'artery_raw'],
-    #                                            group_edge_attrs=["length", "radii"])  # ,'artery_binary', 'artery_raw'])
-    # node_positions = np.array(list(nx.get_node_attributes(nx_graph, "coordinates").values()))
-    # pos = torch.tensor(node_positions, dtype=torch.float)
-    # torch_geometric_graph_data.pos = pos
-    # nodes_target_var_dict = nx.get_node_attributes(nx_graph, target_var_attr_name)
-    # target_y = [nodes_target_var_dict[node_idx] for node_idx in nx_graph.nodes()]
-    # target_y_as_tensor = torch.tensor(target_y)
-    # torch_geometric_graph_data.single_node_label = target_y_as_tensor
-    # torch.save(torch_geometric_graph_data, "/Users/yishaiazabary/PycharmProjects/University/BrainVasculatureGraphs/Data/GBM_Tumor_Graphs/torch_data_graph_annotated_subgraph_with_labels")
-    torch_geometric_graph_data = torch.load("torch_data_graph_annotated_subgraph_with_labels")
+    logger(f"Read Graph, Metadata: #Nodes={torch_geometric_graph_data.num_nodes} | "
+          f"#Edges={len(torch_geometric_graph_data.edge_index[0])}")
+    # todo: convert all parameters to arguments with default values
     use_node_features = True
     use_edge_features = True
-    n_epochs = 5
-    k_hops = 5
+    use_sampler = True
+    n_epochs = 50
     n_spatial_bins_per_dim = 2
     val_spatial_bin_idx, test_spatial_bin_idx = 0, 1
-    # if not use_node_features:
-    #     # to maintain compatibility with torch_geometric (which does not work with no node features at all)
-    #     #   we replace the node features vector/matrix with 0's vector/matrix the same size.
-    #     torch_geometric_graph_data.x = torch.zeros_like(torch_geometric_graph_data.x,
-    #                                                     device=torch_geometric_graph_data.x.device)
-    # if not use_edge_features:
-    #     # to maintain compatibility with torch_geometric (which does not work with no edge features at all)
-    #     #   we replace the edge features vector/matrix with 0's vector/matrix the same size.
-    #     torch_geometric_graph_data.edge_attr = torch.zeros_like(torch_geometric_graph_data.edge_attr,
-    #                                                             device=torch_geometric_graph_data.edge_attr.device)
+    best_model_score = 0
+    gin_latent_space_size = 32
 
-    for type_of_label in ('single', 'majority', 'all'):
-        os.makedirs('GIN_experiments', exist_ok=True)
-        tensor_board_log_dir = f'GIN_experiments/GIN_GBM_BioMarker_Presence_Prediction_' \
-                               f'by_label_{type_of_label}_' \
-                               f'k_hops={k_hops}_' \
-                               f'n_spatial_bins_per_dim={n_spatial_bins_per_dim}' \
-                               f'val_spatial_bin_idx={val_spatial_bin_idx}' \
-                               f'test_spatial_bin_idx={test_spatial_bin_idx}' \
-                               f'use_node_features={use_node_features}' \
-                               f'use_edge_features={use_edge_features}' \
-                               f'#EPOCHS={n_epochs}'
+    for k_hops in (5, 7, 10, 20):
+        for type_of_label in ('single', 'majority'):
+            os.makedirs(os.path.join(scrum_working_dir, 'GIN_experiments'), exist_ok=True)
+            gin_exp_name = f'DL_GIN_GBM_BioMarker_Presence_Prediction_' \
+                                                f'used_sampler_{use_sampler}_' \
+                                                f'by_label_{type_of_label}_' \
+                                                f'k_hops={k_hops}_' \
+                                                f'gin_latent_space_size={gin_latent_space_size}_' \
+                                                f'n_spatial_bins_per_dim={n_spatial_bins_per_dim}' \
+                                                f'val_spatial_bin_idx={val_spatial_bin_idx}' \
+                                                f'test_spatial_bin_idx={test_spatial_bin_idx}' \
+                                                f'use_node_features={use_node_features}' \
+                                                f'use_edge_features={use_edge_features}' \
+                                                f'#EPOCHS={n_epochs}'
+            tensor_board_log_dir = os.path.join(scrum_working_dir,
+                                                f'GIN_experiments',
+                                                gin_exp_name)
 
-        if type_of_label == "majority":
-            calc_items_label_func = MicroEnvironmentDataset.calc_subgraph_label_by_bio_marker_majority
-        elif type_of_label == 'single':
-            calc_items_label_func = MicroEnvironmentDataset.calc_subgraph_label_by_bio_marker_presence
-        elif type_of_label == 'all':
-            calc_items_label_func = MicroEnvironmentDataset.calc_subgraph_label_by_bio_marker_full_presence
-        else:
-            raise NameError(f"no such method to calc microenvironment subgraph label, got= {type_of_label}")
+            if type_of_label == "majority":
+                calc_items_label_func = MicroEnvironmentDataset.calc_subgraph_label_by_bio_marker_majority
+            elif type_of_label == 'single':
+                calc_items_label_func = MicroEnvironmentDataset.calc_subgraph_label_by_bio_marker_presence
+            elif type_of_label == 'all':
+                calc_items_label_func = MicroEnvironmentDataset.calc_subgraph_label_by_bio_marker_full_presence
+            else:
+                raise NameError(f"no such method to calc microenvironment subgraph label, got= {type_of_label}")
 
-        train_graphs, \
-        val_graphs, \
-        test_graphs = \
-            partition_graph_by_regions(torch_geometric_graph_data,
-                                       n_bins_per_dim=n_spatial_bins_per_dim,
-                                       val_bin_idx=val_spatial_bin_idx,
-                                       test_bin_idx=test_spatial_bin_idx)
-        # microenv_dataset = MicroEnvironmentDataset(
-        #     data=torch_geometric_graph_data, num_hops=k_hops, loc_attr_name="pos", max_distance=float('inf'),device='cpu',verbose=0,
-        #     calc_items_label_func=calc_items_label_func
-        # )
-        train_ds = MicroEnvironmentDataset(data=train_graphs,
-                                           num_hops=k_hops,
-                                           loc_attr_name="pos",
-                                           max_distance=float('inf'),
-                                           device='cpu',verbose=0,
-                                           calc_items_label_func=calc_items_label_func,
-                                           include_node_attributes=use_node_features,
-                                           include_edge_attributes=use_edge_features
-                                           )
-        draw_subgraphs(train_ds,draw_lim_num=2)
-        val_ds = MicroEnvironmentDataset(data=val_graphs,
-                                         num_hops=k_hops,
-                                         loc_attr_name="pos",
-                                         max_distance=float('inf'),
-                                         device='cpu', verbose=0,
-                                         calc_items_label_func=calc_items_label_func,
-                                         include_node_attributes=use_node_features,
-                                         include_edge_attributes=use_edge_features
-                                         )
-        draw_subgraphs(val_ds,draw_lim_num=2)
-        test_ds = MicroEnvironmentDataset(data=test_graphs,
-                                          num_hops=k_hops,
-                                          loc_attr_name="pos",
-                                          max_distance=float('inf'),
-                                          device='cpu', verbose=0,
-                                          calc_items_label_func=calc_items_label_func,
-                                          include_node_attributes=use_node_features,
-                                          include_edge_attributes=use_edge_features
-                                          )
-        # some preliminary statistics
-        draw_subgraphs(test_ds,draw_lim_num=2)
-        print(f"train_ds #nodes={len(train_ds)}")
-        print(f"val_ds #nodes={len(val_ds)}")
-        print(f"test_ds #nodes={len(test_ds)}")
-        #
-        # train_ds = Subset(microenv_dataset, np.arange(0, int(len(microenv_dataset)*0.7), 1))
-        # val_ds = Subset(microenv_dataset, np.arange(int(len(microenv_dataset)*0.7), int(len(microenv_dataset)*0.9), 1))
-        # test_ds = Subset(microenv_dataset, np.arange(int(len(microenv_dataset)*0.9), len(microenv_dataset), 1))
+            train_graphs, \
+            val_graphs, \
+            test_graphs = \
+                partition_graph_by_regions(torch_geometric_graph_data,
+                                           n_bins_per_dim=n_spatial_bins_per_dim,
+                                           val_bin_idx=val_spatial_bin_idx,
+                                           test_bin_idx=test_spatial_bin_idx)
+            # microenv_dataset = MicroEnvironmentDataset(
+            #     data=torch_geometric_graph_data, num_hops=k_hops, loc_attr_name="pos", max_distance=float('inf'),device=computation_device,verbose=0,
+            #     calc_items_label_func=calc_items_label_func
+            # )
+            train_ds = MicroEnvironmentDataset(data=train_graphs,
+                                               num_hops=k_hops,
+                                               loc_attr_name="pos",
+                                               max_distance=float('inf'),
+                                               device=computation_device, verbose=0,
+                                               calc_items_label_func=calc_items_label_func,
+                                               include_node_attributes=use_node_features,
+                                               include_edge_attributes=use_edge_features,
+                                               logger=logger
+                                               )
+            if use_sampler:
+                sampler = ImbalancedSampler(train_ds)
+                loader = DataLoader(train_ds, batch_size=1, sampler=sampler)
+            else:
+                loader = train_ds
+            draw_subgraphs(train_ds, draw_lim_num=2)
+            val_ds = MicroEnvironmentDataset(data=val_graphs,
+                                             num_hops=k_hops,
+                                             loc_attr_name="pos",
+                                             max_distance=float('inf'),
+                                             device=computation_device, verbose=0,
+                                             calc_items_label_func=calc_items_label_func,
+                                             include_node_attributes=use_node_features,
+                                             include_edge_attributes=use_edge_features,
+                                             logger=logger
+                                             )
+            draw_subgraphs(val_ds, draw_lim_num=2)
+            test_ds = MicroEnvironmentDataset(data=test_graphs,
+                                              num_hops=k_hops,
+                                              loc_attr_name="pos",
+                                              max_distance=float('inf'),
+                                              device=computation_device, verbose=0,
+                                              calc_items_label_func=calc_items_label_func,
+                                              include_node_attributes=use_node_features,
+                                              include_edge_attributes=use_edge_features,
+                                              logger=logger
+                                              )
+            # some preliminary statistics
+            draw_subgraphs(test_ds, draw_lim_num=2)
+            logger(f"train_ds #nodes={len(train_ds)}")
+            logger(f"val_ds #nodes={len(val_ds)}")
+            logger(f"test_ds #nodes={len(test_ds)}")
+            #
+            # train_ds = Subset(microenv_dataset, np.arange(0, int(len(microenv_dataset)*0.7), 1))
+            # val_ds = Subset(microenv_dataset, np.arange(int(len(microenv_dataset)*0.7), int(len(microenv_dataset)*0.9), 1))
+            # test_ds = Subset(microenv_dataset, np.arange(int(len(microenv_dataset)*0.9), len(microenv_dataset), 1))
 
+            # microenv_dataset_loader = DataLoader(microenv_dataset, batch_size=2, collate_fn=lambda x: x)
+            # logger(f"presplit target values count = {microenv_dataset.calc_target_statistics()}")
 
-        # microenv_dataset_loader = DataLoader(microenv_dataset, batch_size=2, collate_fn=lambda x: x)
-        # print(f"presplit target values count = {microenv_dataset.calc_target_statistics()}")
+            gin = GIN(dim_h=gin_latent_space_size, ds=train_ds, output_dim=2)
+            gin.to(computation_device)
 
-        gin = GIN(dim_h=32, ds=train_ds, output_dim=2)
-        gin.to('cuda:0' if torch.cuda.is_available() else 'cpu')
+            tensorboard_summary_writer = SummaryWriter(log_dir=tensor_board_log_dir)
+            gin, test_acc = train(gin, train_loader=loader,
+                                  train_ds=train_ds,
+                                  validation_loader=val_ds, epochs_num=n_epochs,
+                                  tensorboard_writer=tensorboard_summary_writer,
+                                  test_loader=test_ds,
+                                  logger=logger)
 
-        tensorboard_summary_writer = SummaryWriter(log_dir=tensor_board_log_dir)
-        gin = train(gin, train_loader=train_ds,
-                    validation_loader=val_ds, epochs_num=n_epochs,
-                    tensorboard_writer=tensorboard_summary_writer,
-                    test_loader=test_ds)
-
-        # print(f"post-split target values count:\n"
-        #       f"train={train_ds.dataset.calc_target_statistics()}\n"
-        #       f"test={test_ds.dataset.calc_target_statistics()}")
+            if best_model_score < test_acc:
+                best_model_score = test_acc
+                with open(f"model_{gin_exp_name}.model", 'w') as f:
+                    torch.save(gin, f)

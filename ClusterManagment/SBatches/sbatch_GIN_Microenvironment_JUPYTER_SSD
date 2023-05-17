@@ -23,24 +23,27 @@ echo -e "\nSLURM_JOBID:\t\t" $SLURM_JOBID
 echo -e "SLURM_JOB_NODELIST:\t" $SLURM_JOB_NODELIST "\n\n"
 
 ### Start your code below ####
-###SSD
+#SSD
 export CWD=$PWD
 export SLURM_SCRATCH_DIR=/scratch/${SLURM_JOB_USER}/${SLURM_JOBID}
 echo -e "SLURM_SCRATCH_DIR:\t" $SLURM_SCRATCH_DIR "\n\n"
 
 cp ~/GBVasculatureGraphsAnalysis/BrainVasculatureGraphData/torch_data_graph_annotated_subgraph_with_labels $SLURM_SCRATCH_DIR/torch_data_graph_annotated_subgraph_with_labels
 
-###/SSD
+#/SSD
 module load anaconda				### load anaconda module (must be present when working with conda environments)
 source activate /home/yishaiaz/anaconda3/envs/torch_geo230_env				### activate a conda environment, replace my_env with your conda environment
+jupyter notebook
+#ls -la "/scratch/yishaiaz@auth.ad.bgu.ac.il/${SLURM_JOBID}/*"
 
 export SCRIPT_NAME=PyTorchCustomUtilitiesForCluster.py
-export SCRIPT_PATH=~/GBVasculatureGraphsAnalysis/GNN_Exploration_BIOMARKER_Presence_SCRIPTS/${SCRIPT_NAME}
-echo "Working from $CWD"
-echo "started with ${SCRIPT_NAME} python script at ${SCRIPT_PATH}"
-python ${SCRIPT_PATH} --job_id ${SLURM_JOBID}   				### execute python script
-echo "done with ${SCRIPT_NAME} python script"
-###SSD
+#export SCRIPT_PATH=~/GBVasculatureGraphsAnalysis/GNN_Exploration_BIOMARKER_Presence_SCRIPTS/${SCRIPT_NAME}
+#echo "Working from $CWD"
+#echo "started with ${SCRIPT_NAME} python script at ${SCRIPT_PATH}"
+#python ${SCRIPT_PATH} --job_id ${SLURM_JOBID}   				### execute python script
+
+#echo "done with ${SCRIPT_NAME} python script"
+#SSD
 cp -r $SLURM_SCRATCH_DIR $SLURM_SUBMIT_DIR
 echo -e "COPIED TO SLURM_SUBMIT_DIR:\t" $SLURM_SUBMIT_DIR "\n\n"
-###/SSD
+#/SSD
