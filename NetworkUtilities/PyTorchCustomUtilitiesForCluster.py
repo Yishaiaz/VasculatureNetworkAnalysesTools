@@ -333,9 +333,9 @@ def train(model, train_loader, train_ds, validation_loader, test_loader,
         # Train on batches
         logger("training!")
         if isinstance(logger, CallableLogger):
-            iter = loader
+            iter = train_loader
         else:
-            iter = tqdm.tqdm(loader)
+            iter = tqdm.tqdm(train_loader)
         for data in iter:
             optimizer.zero_grad()
             _, out = model(data.x, data.edge_index, data.batch)
