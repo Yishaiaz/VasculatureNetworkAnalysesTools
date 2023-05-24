@@ -11,6 +11,7 @@ from GINModels import GINWithDynamicLayersNumber, FixedGIN
 if __name__ == '__main__':
     import argparse
     computation_device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    print(f"Using computation device: {computation_device}")
     parser = argparse.ArgumentParser(prog='TorchGNN', description='')
     parser.add_argument('--job_id', type=str,
                         help='job id as string')
