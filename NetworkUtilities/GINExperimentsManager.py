@@ -54,12 +54,14 @@ if __name__ == '__main__':
     val_spatial_bin_idx, test_spatial_bin_idx = 0, 1
     best_model_score = 0
     gin_latent_space_size = 32
+    batch_size = 1
     for gin_type in (GINWithDynamicLayersNumber, FixedGIN):
         for k_hops in (5, 7, 10, 20):
             for type_of_label in ('single', 'majority'):
                 os.makedirs(os.path.join(scrum_working_dir, 'GIN_experiments'), exist_ok=True)
                 gin_exp_name = f'DL_{type(gin_type).__name__}_GBM_BioMarker_Presence_Prediction_' \
                                                     f'used_sampler_{use_sampler}_' \
+                                                    f'batch_size={batch_size}_' \
                                                     f'by_label_{type_of_label}_' \
                                                     f'k_hops={k_hops}_' \
                                                     f'gin_latent_space_size={gin_latent_space_size}_' \
@@ -105,7 +107,7 @@ if __name__ == '__main__':
                                                    )
                 if use_sampler:
                     sampler = ImbalancedSampler(train_ds)
-                    loader = DataLoader(train_ds, batch_size=1, sampler=sampler)
+                    loader = DataLoader(train_ds, batch_size=batch_size, sampler=sampler)
                 else:
                     loader = train_ds
                 draw_subgraphs(train_ds, draw_lim_num=2)
