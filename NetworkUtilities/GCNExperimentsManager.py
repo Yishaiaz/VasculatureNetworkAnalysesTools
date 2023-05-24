@@ -53,7 +53,7 @@ if __name__ == '__main__':
     n_spatial_bins_per_dim = 2
     val_spatial_bin_idx, test_spatial_bin_idx = 0, 1
     best_model_score = 0
-    gin_latent_space_size = 32
+    gnn_latent_space_size = 32
     batch_size = 1
     for gnn_type in (GCNWithDynamicLayersNumber, FixedGCN):
         for k_hops in (5, 7, 10, 20):
@@ -64,7 +64,7 @@ if __name__ == '__main__':
                                                     f'batch_size={batch_size}_' \
                                                     f'by_label_{type_of_label}_' \
                                                     f'k_hops={k_hops}_' \
-                                                    f'gin_latent_space_size={gin_latent_space_size}_' \
+                                                    f'gin_latent_space_size={gnn_latent_space_size}_' \
                                                     f'n_spatial_bins_per_dim={n_spatial_bins_per_dim}' \
                                                     f'val_spatial_bin_idx={val_spatial_bin_idx}' \
                                                     f'test_spatial_bin_idx={test_spatial_bin_idx}' \
@@ -145,7 +145,7 @@ if __name__ == '__main__':
                 # microenv_dataset_loader = DataLoader(microenv_dataset, batch_size=2, collate_fn=lambda x: x)
                 # logger(f"presplit target values count = {microenv_dataset.calc_target_statistics()}")
 
-                gin = gnn_type(dim_h=gin_latent_space_size, ds=train_ds, output_dim=2)
+                gin = gnn_type(dim_h=gnn_latent_space_size, ds=train_ds, output_dim=2, n_hops=k_hops)
                 gin.to(computation_device)
 
                 tensorboard_summary_writer = SummaryWriter(log_dir=tensor_board_log_dir)

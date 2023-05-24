@@ -17,6 +17,8 @@
 #SBATCH --mail-type=BEGIN,END,FAIL			### conditions for sending the email. ALL,BEGIN,END,FAIL, REQUEU, NONE
 #SBATCH --mem=16G				### ammount of RAM memory
 
+export LD_LIBRARY_PATH=/home/yishaiaz/.conda/envs/torch_geo230_env/lib:$LD_LIBRARY_PATH
+
 ### Print some data to output file ###
 echo `date`
 echo -e "\nSLURM_JOBID:\t\t" $SLURM_JOBID
@@ -32,7 +34,7 @@ cp ~/GBVasculatureGraphsAnalysis/BrainVasculatureGraphData/torch_data_graph_anno
 
 ###/SSD
 module load anaconda				### load anaconda module (must be present when working with conda environments)
-source activate /home/yishaiaz/anaconda3/envs/torch_geo230_env				### activate a conda environment, replace my_env with your conda environment
+source activate c/home/yishaiaz/anaconda3/envs/torch_geo230_env				### activate a conda environment, replace my_env with your conda environment
 
 export SCRIPT_NAME=GINExperimentsManager.py
 export SCRIPT_PATH=~/VasculatureNetworkAnalysesTools/NetworkUtilities/${SCRIPT_NAME}
