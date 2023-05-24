@@ -14,6 +14,7 @@ class GCNWithDynamicLayersNumber(torch.nn.Module):
                  linear_head_dropout: float = 0.5):
         super(GCNWithDynamicLayersNumber, self).__init__()
         ds_num_node_features = get_number_of_node_features(ds)
+        self.n_hops = n_hops
         self.linear_head_dropout = linear_head_dropout
         self.conv1 = GCNConv(
             in_channels=-1,
