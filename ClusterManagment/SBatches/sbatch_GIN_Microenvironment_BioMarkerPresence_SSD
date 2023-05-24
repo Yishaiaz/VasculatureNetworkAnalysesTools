@@ -17,7 +17,7 @@
 #SBATCH --mail-type=BEGIN,END,FAIL			### conditions for sending the email. ALL,BEGIN,END,FAIL, REQUEU, NONE
 #SBATCH --mem=16G				### ammount of RAM memory
 
-export LD_LIBRARY_PATH=/home/yishaiaz/.conda/envs/torch_geo230_env/lib:$LD_LIBRARY_PATH
+#export LD_LIBRARY_PATH=/home/yishaiaz/.conda/envs/torch_geo230_env/lib:$LD_LIBRARY_PATH
 
 ### Print some data to output file ###
 echo `date`
