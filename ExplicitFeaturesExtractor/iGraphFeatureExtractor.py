@@ -1,11 +1,11 @@
 import numpy as np
-import graph_tool.all as gt
 import igraph as ig
 import graph_tool.all as gt
-from igraph import Graph
 import warnings
 import pickle
+from tqdm import tqdm
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 def convert_graph_tool_to_igraph(graph_tool_graph: gt.Graph,
@@ -14,10 +14,6 @@ def convert_graph_tool_to_igraph(graph_tool_graph: gt.Graph,
 
     all_gt_edges = [(int(_edge.source()), int(_edge.target())) for _edge in graph_tool_graph.edges()]
     igraph_graph = ig.Graph(all_gt_edges, directed=graph_tool_graph.is_directed())
-    if graph_tool_graph.num_edges() != igraph_graph.ecount():
-        warnings.warn(f"Number of edges is not identical after conversion! # in gt graph: {graph_tool_graph.num_edges()}!= # in igraph graph: {igraph_graph.ecount()}")
-    if graph_tool_graph.num_vertices() != igraph_graph.vcount():
-        warnings.warn(f"Number of vertices is not identical after conversion! # in gt graph: {graph_tool_graph.num_vertices()}!= # in igraph graph: {igraph_graph.vcount()}")
 
     for prop in graph_tool_graph.vertex_properties.keys():
         print(f"adding vertex property '{prop}' to iGraph")
@@ -35,6 +31,21 @@ def convert_graph_tool_to_igraph(graph_tool_graph: gt.Graph,
     return igraph_graph
 
 
+def get_voxel_subgraphs(ig_graph):
+    with open('voxel_subgraphs_50.pkl', 'rb') as file:
+        voxel_subs = pickle.load(file)
+    print("creating voxel subgraphs... ")
+    subgraphs = [ig_graph.subgraph(vox_inds) for vox_inds in tqdm(voxel_subs)]
+    return subgraphs
+
+
+def get_hops_subgraphs(ig_graph):
+    n_hops = 2
+    print(f"creating {n_hops}-hops subgraphs... ")
+    subgraphs = [ig_graph.subgraph(ig_graph.neighborhood(node, order=n_hops)) for node in tqdm(ig_graph.vs)]
+    return subgraphs
+
+
 def calc_3d_dist(c_1: list[float], c_2: list[float]) -> int:
     """
     calculate distnace between two 3-d points with x,y,z
@@ -47,6 +58,7 @@ def calc_3d_dist(c_1: list[float], c_2: list[float]) -> int:
 
 if __name__ == '__main__':
     gt_graph_path = "/Users/leahbiram/Desktop/vasculature_data/firstGBMscanGraph.gt"
+    output_features_path = "../ExtractedFeatureFiles/firstGBMFeatures_Hop.csv"
     gt_graph = gt.load_graph(gt_graph_path)
     ig_graph = convert_graph_tool_to_igraph(gt_graph, True)
 
@@ -59,26 +71,66 @@ if __name__ == '__main__':
     e_df = (dummy_df.merge(v_df, left_on='target', right_on='vertex ID', suffixes=['_source', '_target']))
 
     e_df['distance'] = e_df.apply(lambda row: calc_3d_dist([row.x_source, row.y_source, row.z_source],[row.x_target, row.y_target, row.z_target]), axis=1)
-    e_df['prolif'] = e_df['distance']/e_df['length']
-    e_df['x_direction'] = (e_df['x_target'] - e_df['x_source'])/e_df['distance']
-    e_df['y_direction'] = (e_df['y_target'] - e_df['y_source'])/e_df['distance']
-    e_df['z_direction'] = (e_df['z_target'] - e_df['z_source'])/e_df['distance']
 
-    with open('voxel_subgraphs_50.pkl', 'rb') as file:
-        voxel_subs = pickle.load(file)
+    ig_graph.es['prolif'] = e_df['distance']/e_df['length']
+    ig_graph.es['x_direction'] = (e_df['x_target'] - e_df['x_source'])/e_df['distance']
+    ig_graph.es['y_direction'] = (e_df['y_target'] - e_df['y_source'])/e_df['distance']
+    ig_graph.es['z_direction'] = (e_df['z_target'] - e_df['z_source'])/e_df['distance']
+    ig_graph.es['distance'] = e_df['distance']
 
-    edges = []
-    for vox_inds in voxel_subs:
-        pruned_vs = ig_graph.subgraph(vox_inds)
-        edges.append(pruned_vs.ecount())
-# TODO add number of nodes and number of edges
+    #subgraphs = get_voxel_subgraphs(ig_graph)
+    subgraphs = (get_hops_subgraphs(ig_graph))
 
-    #add minimum angle
-    print(ig_graph.edge_attributes())
+    average_lengths, average_radii, average_distance = [], [], []
+    average_x_dir, average_y_dir, average_z_dir = [], [], []
+    std_lengths, std_radii, std_distance =[], [], []
+    std_x_dir, std_y_dir, std_z_dir = [], [], []
+    edge_count, vertex_count = [], []
+    print("calculating average and std of features...")
+    for subgraph in tqdm(subgraphs):
+        average_lengths.append(np.average(subgraph.es["length"]))
+        std_lengths.append(np.average(subgraph.es["length"]))
+        average_radii.append(np.average(subgraph.es["radii"]))
+        std_radii.append(np.average(subgraph.es["radii"]))
+        average_distance.append(np.average(subgraph.es["distance"]))
+        std_distance.append(np.average(subgraph.es["distance"]))
+        average_x_dir.append(np.average(subgraph.es["x_direction"]))
+        std_x_dir.append(np.average(subgraph.es["x_direction"]))
+        average_y_dir.append(np.average(subgraph.es["y_direction"]))
+        std_y_dir.append(np.average(subgraph.es["y_direction"]))
+        average_z_dir.append(np.average(subgraph.es["z_direction"]))
+        std_z_dir.append(np.average(subgraph.es["z_direction"]))
+        edge_count.append(subgraph.ecount())
+        vertex_count.append(subgraph.vcount())
 
-# TODO work with dataframes to save as graphs and convert to pyTorch Geometric.
+    # all features into one dataframe
+    ig_graph.vs["vox_length_avg"] = average_lengths
+    ig_graph.vs["vox_radii_avg"] = average_radii
+    ig_graph.vs["vox_distance_avg"] = average_distance
+    ig_graph.vs["vox_x_dir_avg"] = average_x_dir
+    ig_graph.vs["vox_y_dir_avg"] = average_y_dir
+    ig_graph.vs["vox_z_dir_avg"] = average_z_dir
+
+    ig_graph.vs["vox_length_std"] = std_lengths
+    ig_graph.vs["vox_radii_std"] = std_radii
+    ig_graph.vs["vox_distance_std"] = std_distance
+    ig_graph.vs["vox_x_dir_std"] = std_x_dir
+    ig_graph.vs["vox_y_dir_std"] = std_y_dir
+    ig_graph.vs["vox_z_dir_std"] = std_z_dir
+
+    ig_graph.vs["vox_e_count"] = edge_count
+    ig_graph.vs["vox_v_count"] = vertex_count
+    ig_graph.vs['degree'] = ig_graph.degree()
+
+    #TODO optional add minimum angle, or other angle cals from direction?
+    feats_df = ig_graph.get_vertex_dataframe()
+    feats_df = feats_df.drop(['x', 'y', 'z'], axis=1)
+
+    feats_df.to_csv(output_features_path)
+
+    print(feats_df.head())
+    print(feats_df.columns)
+
+# TODO convert to pyTorch Geometric.
 # TODO possibly check out PyDGN
 # TODO try implementing over Yishaia's implementation
-# TODO clean repository pull and push
-
-    new_g = Graph.DataFrame(e_df, directed=False)
