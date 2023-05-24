@@ -19,8 +19,8 @@ import plotly.graph_objs as go
 def convert_graph_tool_to_igraph(_g: gt.Graph,
                                  include_attributes: bool = False,
                                  **kwargs) -> ig.Graph:
-    # todo: 1 - add the vertex and edges properties to the igraph instance.
-    # todo: 2 - add the ability to directly save the new graph instance.
+    # todo: 1 - add the ability to directly save the new graph instance.
+    # todo: option: ig_graph.write("graph_file.graphml", format="graphml")
 
     all_gt_edges = [(int(_edge.source()), int(_edge.target())) for _edge in _g.edges()]
     ig_graph = ig.Graph(all_gt_edges, directed=_g.is_directed())
@@ -28,6 +28,12 @@ def convert_graph_tool_to_igraph(_g: gt.Graph,
         warnings.warn(f"Number of edges is not identical after conversion! # in gt graph: {_g.num_edges()}!= # in igraph graph: {ig_graph.ecount()}")
     if _g.num_vertices() == ig_graph.vcount():
         warnings.warn(f"Number of vertices is not identical after conversion! # in gt graph: {_g.num_vertices()}!= # in igraph graph: {ig_graph.vcount()}")
+
+    for prop in _g.vertex_properties.keys():
+        ig_graph.vs[prop] = _g.vertex_properties[prop].get_array()
+    for prop in _g.edge_properties.keys():
+        ig_graph.es[prop] = _g.edge_properties[prop].get_array()
+
     return ig_graph
 
 

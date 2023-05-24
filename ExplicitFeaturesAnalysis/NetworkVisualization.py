@@ -13,6 +13,10 @@ import matplotlib.pyplot as plt
 import graph_tool.all as gt
 from graph_tool import draw
 from ExplicitFeaturesExtractor import ExplicitFeatures as fe
+import plotly.express as px
+from dash import Dash, dcc, html, Input, Output
+from chart_studio.plotly import plotly as py
+import plotly.graph_objs as go
 
 
 def draw_graph_with_color_edges_by_edge_attribute(_g: gt.Graph,
@@ -72,19 +76,126 @@ def draw_graph_with_color_edges_by_edge_attribute(_g: gt.Graph,
     }
 
     draw.graph_draw(_g, pos=_g.vp['coordinates'], output=output_path, **draw_kwargs)
-#    gt.interactive_window(_g, pos=_g.vp['coordinates'],
-#                  output=output_path,
-#                  **draw_kwargs)
 
-# def draw_graph_in_3d(_g: gt.Graph):
-#
+def builtin_2d_draw(gbm_graph):
+    draw_graph_with_color_edges_by_edge_attribute(
+        _g=gbm_graph,
+        edge_or_vertex='vertex',
+        color_attribute_name="correct_preds",
+        size_attribute_name="correct_preds",
+        graph_draw_name="correctness_predictions_vertex_gbm_graph_with_color_norm_immune_intensity_width_immune_presence"
+    )
+
+
+def scat_3d(gbm_df):
+
+    fig = px.scatter_3d(gbm_df, x='x', y='y', z='z',
+                        color='color')
+    fig.update_traces(marker=dict(size=2))
+    fig.show()
+    fig = plt.figure()
+
+
+def scatter_interactive_3d(gbm_df):
+
+    app = Dash(__name__)
+
+    app.layout = html.Div([
+        html.H4('vasculature predictions'),
+        dcc.Graph(id="graph"),
+        html.P("Vasc:"),
+        dcc.RangeSlider(
+            id='range-slider',
+            min=0, max=2500, step=10,
+            marks={0: '0', 1500:'1500', 2500: '2500'},
+            value=[0, 1500]
+        ),
+    ])
+
+    @app.callback(
+        Output("graph", "figure"),
+        Input("range-slider", "value"))
+    def update_bar_chart(slider_range):
+        low, high = slider_range
+        mask = (gbm_df.z > low) & (gbm_df.z < high)
+
+        fig = px.scatter_3d(gbm_df[mask],
+                            x='x', y='y', z='z',
+                            color="color", hover_data=['z'])
+        fig.update_traces(marker=dict(size=2))
+        return fig
+
+    app.run_server(debug=True, use_reloader=False)
+
+
+def plotly_network_3d(gbm_g, df_coords):
+    Xe, Ye, Ze = [], [], []
+    for e in gbm_g.edges():
+        Xe.append([gbm_g.vertex_properties["coordinates"][e.source()][0],
+                  gbm_g.vertex_properties["coordinates"][e.target()][0], None])
+        Ye.append([gbm_g.vertex_properties["coordinates"][e.source()][1],
+                  gbm_g.vertex_properties["coordinates"][e.target()][1], None])
+        Ze.append([gbm_g.vertex_properties["coordinates"][e.source()][2],
+                  gbm_g.vertex_properties["coordinates"][e.target()][2], None])
+
+    Xn = df_coords.x
+    Yn = df_coords.y
+    Zn = df_coords.z
+
+    trace1 = go.Scatter3d(x=Xe, y=Ye, z=Ze,
+                          mode='lines',
+                          line=dict(color='rgb(125,125,125)', width=1),
+                          hoverinfo='none')
+
+    trace2 = go.Scatter3d(x=Xn, y=Yn, z=Zn,
+                          mode='markers',
+                          name='actors',
+                          marker=dict(symbol='circle',
+                                      size=6,
+                                      color=df.color,
+                                      colorscale='Viridis',
+                                      line=dict(color='rgb(50,50,50)', width=0.5)
+                                      ),
+                          hoverinfo='text')
+
+    axis = dict(showbackground=False, showline=False, zeroline=False, showgrid=False, showticklabels=False, title='')
+
+    layout = go.Layout(
+        title="Network (3D visualization)",
+        width=1000,
+        height=1000,
+        showlegend=False,
+        scene=dict(
+            xaxis=dict(axis),
+            yaxis=dict(axis),
+            zaxis=dict(axis),),
+        margin=dict(
+            t=100),
+        hovermode='closest',
+        annotations=[
+            dict(
+                showarrow=False,
+                x=0,
+                y=0.1,
+                xanchor='left',
+                yanchor='bottom',
+                font=dict(size=14)
+            )],
+    )
+    data = [trace1, trace2]
+    fig = go.Figure(data=data, layout=layout)
+
+    #py.iplot(fig, filename='visualize_prediction.html')
+    py.iplot(fig)
+    #fig=py.iplot(fig, filename='visualize_prediction.html')
+    #fig.show()
+
+
 
 if __name__ == '__main__':
     gbm_graph_fpath = "/Users/leahbiram/Desktop/vasculature_data/firstGBMscanGraph.gt"
     g = gt.load_graph(gbm_graph_fpath)
     gbm_graph = fe.preprocess_graph(g)
-
-    coo = g.vp['coordinates'].fa
 
     file_path = "/Users/leahbiram/Desktop/vasculature_data/firstGBMscanGraph.csv"
     df = pd.read_pickle(file_path)
@@ -101,17 +212,24 @@ if __name__ == '__main__':
             correctness[i] = 2
         if p_list[i] == 1 and r_list[i] == 0:
             correctness[i] = 3
-   # correctness = [2 if p==0 and r==1 else p for p in p_list for r in r_list]
 
     gbm_graph.vertex_properties["correct_preds"] = gbm_graph.new_vertex_property("int")
     for i, v in enumerate(gbm_graph.vertices()):
         gbm_graph.vertex_properties["correct_preds"][v] = correctness[i]
 
     print(f"properties in loaded graph:  {gbm_graph.list_properties()}")
-    draw_graph_with_color_edges_by_edge_attribute(
-        _g=gbm_graph,
-        edge_or_vertex='vertex',
-        color_attribute_name="correct_preds",
-        size_attribute_name="correct_preds",
-        graph_draw_name="correctness_predictions_vertex_gbm_graph_with_color_norm_immune_intensity_width_immune_presence"
-    )
+
+    gbm_graph_filter = gt.GraphView(gbm_graph, vfilt=lambda v: gbm_graph.vertex_properties["correct_preds"][v] > 0)
+
+    coords=[]
+    colors = []
+    for v in gbm_graph_filter.vertices():
+        coords.append(gbm_graph_filter.vertex_properties["coordinates"][v])
+        colors.append(gbm_graph_filter.vertex_properties["correct_preds"][v])
+    df = pd.DataFrame({"x":[c[0]for c in coords], "y": [c[1]for c in coords], "z": [c[2]for c in coords], "color":colors})
+
+    plotly_network_3d(gbm_graph_filter, df)
+
+
+
+

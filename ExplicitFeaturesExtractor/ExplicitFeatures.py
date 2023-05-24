@@ -120,8 +120,8 @@ def ego_net_depth_N(_g: Graph, ego: Vertex, n: int) -> Graph:
     """
     The function calculates the shortest distance from the ego node to all other nodes in the graph using the
     shortest_distance function from the topology module. It then creates a graph view of the original graph using the
-    GraphView function, filtering the vertices by those that have a shortest distance less than the number of
-    vertices in the original graph. Finally, it returns the graph view as the subgraph
+    GraphView function, filtering the vertices by those that have a shortest distance.
+    Finally, it returns the graph view as the subgraph
     :param _g: graph object
     :param ego: vertex object representing the ego node
     :param n: depth of the subgraph
@@ -129,6 +129,21 @@ def ego_net_depth_N(_g: Graph, ego: Vertex, n: int) -> Graph:
     """
     d = gt.topology.shortest_distance(_g, ego, max_dist=n)
     ego_g = gt.GraphView(_g, vfilt=d.a < _g.num_vertices())
+    return ego_g
+
+
+def ego_net_voxel(_g: Graph, ego: Vertex, all_voxels:list) -> Graph:
+    """
+    The function calculates the ___. It then creates a graph view of the original graph using the
+    GraphView function, filtering the vertices by those that . Finally, it returns the graph view as the subgraph
+    :param _g: graph object
+    :param ego: vertex object representing the ego node
+    :param n: depth of the subgraph
+    :return: graph object of the subgraph
+    """
+
+    indices_in_voxel = all_voxels[ego]
+    ego_g = gt.GraphView(_g, vfilt=lambda v: v in indices_in_voxel)
     return ego_g
 
 

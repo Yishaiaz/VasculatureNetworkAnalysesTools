@@ -68,14 +68,14 @@ def vasc_tsne(data: pd.DataFrame, features: list[str], plot_name: str = "tsne"):
 
     fig = px.scatter(
         projections, x=0, y=1,
-        color=data.log_immune, labels={'color': 'log_immune'},
+        color=data.source, labels={'color': 'source'},
         title=plot_name
-    )
+    ) # lbels = log_immune
     fig.show()
 
 
-def features_heatmap(data: pd.DataFrame):
-    fig = px.imshow(data.corr(), title="GBM all features correlation")
+def features_heatmap(data: pd.DataFrame, features):
+    fig = px.imshow(data[features].corr(), title="GBM all features correlation")
     fig.show()
 
 
@@ -96,17 +96,36 @@ def add_loop_features(df: pd.DataFrame):
 
 
 def main():
-    analysis = "predict"  # [features_heatmap, vasc_tsne, predict_acc]
+    analysis = "tsne"  # [features_heatmap, vasc_tsne, predict_acc]
     features = []  # if left empty, all features will be taken
     sample = 0  # 0 == use full dataset, otherwise num of nodes to sample for analysis
     scale = True
-    extract_output = True  # False
+    extract_output = False  # False
 
-    file_path = "/Users/leahbiram/Desktop/vasculature_data/firstGBMscanGraph.csv"
-    df = pd.read_pickle(file_path)
-    df = add_immune_analysis(df)
-    if len(features) == 0 and analysis in ["tsne", "predict"]:
-        features = exclude_immune_features(df)
+    #file_path = "/Users/leahbiram/Desktop/vasculature_data/firstGBMscanGraph.csv"
+    #file_path ="../ExtractedFeatureFiles/CD31-graph-reduced_features.csv"
+    #file_4_features = "../ExtractedFeatureFiles/CD31-graph-reduced_features.csv"
+    #df_4_features = pd.read_pickle(file_4_features)
+    #features = [f for f in df_4_features.columns if not "std" in f]
+
+    #df = pd.read_pickle(file_path)
+
+    # df = add_immune_analysis(df)
+    # if len(features) == 0 and analysis in ["tsne", "predict"]:
+    #     features = exclude_immune_features(df)
+
+    file_path_1 = "/Users/leahbiram/Desktop/vasculature_data/firstGBMscanGraph.csv"
+    file_path_2 ="../ExtractedFeatureFiles/CD31-graph-reduced_features.csv"
+    df2 = pd.read_pickle(file_path_2)
+    features = [f for f in df2.columns if not "std" in f]
+    df1 = pd.read_pickle(file_path_1)[features].sample(10)
+    df2 = df2[features].sample(10)
+
+    df1["source"] = 1
+    df2["source"] = 2
+
+    df = pd.concat([df1,df2],axis=0)
+
     print(features)
 
     if scale:
@@ -116,7 +135,7 @@ def main():
 
     sampled_df = df if sample == 0 else df.sample(sample)
 
-    if analysis == "heatmap": features_heatmap(sampled_df)
+    if analysis == "heatmap": features_heatmap(sampled_df,features)
     if analysis == "tsne": vasc_tsne(sampled_df, features, "GBM tsne by log raw immune")
     if analysis == "predict": predictions = predict_acc(sampled_df, features, "has_immune", 100)
     if analysis == "scatter": scatter(sampled_df, features)
@@ -130,8 +149,37 @@ def main():
 
 
 
+def main_comparison():
+    # load the two dataframes
+    file_path_1 = "/Users/leahbiram/Desktop/vasculature_data/firstGBMscanGraph.csv"
+    file_path_2 ="../ExtractedFeatureFiles/CD31-graph-reduced_features.csv"
+    df2 = pd.read_pickle(file_path_2)
+    features = [f for f in df2.columns if not "std" in f]
+    df1 = pd.read_pickle(file_path_1)[features].sample(10000)
+    df2 = df2[features].sample(10000)
+
+    df1["source"] = 1
+    df2["source"] = 2
+
+    combined = pd.concat([df1,df2],axis=0, ignore_index=True)
+
+    #summary_df = combined.groupby("source").agg(['mean', 'median', 'min', 'max'])
+    #print(summary_df)
+
+
+    # visualize the distribution of the data for each column using a violin plot
+    fig, axs = plt.subplots(nrows=10, ncols=5, figsize=(10, 8))
+    axs = axs.ravel()
+    for column, ax in zip(df1.columns, axs):
+
+        sns.displot(x=column, hue='source', data=combined, kind="kde")
+        ax.set(title=f'{column} distribution comparison', xlabel='Value')
+    plt.show()
+
+
 if __name__ == "__main__":
-    main()
+    main_comparison()
+    #main()
 
 
 #depth1_e_volume_mean', 'depth1_e_volume_std', 'depth2_e_volume_mean', 'depth2_e_volume_std', 'depth1_e_radii_mean',
