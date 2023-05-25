@@ -36,7 +36,7 @@ cp ~/GBVasculatureGraphsAnalysis/BrainVasculatureGraphData/torch_data_graph_anno
 module load anaconda				### load anaconda module (must be present when working with conda environments)
 source activate torch_geo230_env				### activate a conda environment, replace my_env with your conda environment
 
-export SCRIPT_NAME=GINExperimentsManager.py
+export SCRIPT_NAME=GCNExperimentsManager.py
 export SCRIPT_PATH=~/VasculatureNetworkAnalysesTools/NetworkUtilities/${SCRIPT_NAME}
 echo "Working from $CWD"
 echo "started with ${SCRIPT_NAME} python script at ${SCRIPT_PATH}"

@@ -4,7 +4,7 @@ from torch.nn import Linear, Sequential, BatchNorm1d, ReLU, Dropout
 from torch_geometric.nn import GCNConv, GINConv
 from torch_geometric.nn import global_mean_pool, global_add_pool
 from torch import sum, max_pool1d
-from PyTorchCustomUtilitiesForCluster import get_number_of_node_features
+from PyTorchCustomUtilities import get_number_of_node_features
 
 class GINWithDynamicLayersNumber(torch.nn.Module):
     """GIN"""
