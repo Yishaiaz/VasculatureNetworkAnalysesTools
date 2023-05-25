@@ -32,6 +32,9 @@ class GINWithDynamicLayersNumber(torch.nn.Module):
         prev_layer_output = self.conv1(x, edge_index)
         gin_conv_layers_output_mean = [global_mean_pool(prev_layer_output, batch)]
         for gin_conv_layer in self.gin_conv_layers[1:]:
+            print(f"prev_layer_output device: {prev_layer_output.get_device()}\n"
+                  f"edge_index device: {edge_index.get_device()}\n")
+
             gin_conv_layer_out = gin_conv_layer(prev_layer_output, edge_index)
             gin_conv_layer_mean = global_mean_pool(gin_conv_layer_out, batch)
             gin_conv_layers_output_mean.append(gin_conv_layer_mean)
