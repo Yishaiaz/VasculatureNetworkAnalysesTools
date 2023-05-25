@@ -1,3 +1,4 @@
+import gc
 import torch
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential, BatchNorm1d, ReLU, Dropout
@@ -55,16 +56,16 @@ if __name__ == '__main__':
     best_model_score = 0
     gin_latent_space_size = 32
     batch_size = 1
-    for gin_type in (GINWithDynamicLayersNumber, FixedGIN):
+    for gnn_type in (GINWithDynamicLayersNumber, FixedGIN):
         for k_hops in (5, 7, 10, 20):
             for type_of_label in ('single', 'majority'):
                 os.makedirs(os.path.join(scrum_working_dir, 'GIN_experiments'), exist_ok=True)
-                gin_exp_name = f'DL_{type(gin_type).__name__}_GBM_BioMarker_Presence_Prediction_' \
+                gin_exp_name = f'DL_{type(gnn_type).__name__}_GBM_BioMarker_Presence_Prediction_' \
                                                     f'used_sampler_{use_sampler}_' \
                                                     f'batch_size={batch_size}_' \
                                                     f'by_label_{type_of_label}_' \
                                                     f'k_hops={k_hops}_' \
-                                                    f'gin_latent_space_size={gin_latent_space_size}_' \
+                                                    f'gnn_latent_space_size={gin_latent_space_size}_' \
                                                     f'n_spatial_bins_per_dim={n_spatial_bins_per_dim}' \
                                                     f'val_spatial_bin_idx={val_spatial_bin_idx}' \
                                                     f'test_spatial_bin_idx={test_spatial_bin_idx}' \
@@ -145,18 +146,23 @@ if __name__ == '__main__':
                 # microenv_dataset_loader = DataLoader(microenv_dataset, batch_size=2, collate_fn=lambda x: x)
                 # logger(f"presplit target values count = {microenv_dataset.calc_target_statistics()}")
 
-                gin = gin_type(dim_h=gin_latent_space_size, ds=train_ds, output_dim=2, n_hops=k_hops)
-                gin.to(computation_device)
+                gnn_model = gnn_type(dim_h=gin_latent_space_size, ds=train_ds, output_dim=2, n_hops=k_hops)
+                gnn_model.to(computation_device)
 
                 tensorboard_summary_writer = SummaryWriter(log_dir=tensor_board_log_dir)
-                gin, test_acc = train(gin, train_loader=loader,
-                                      train_ds=train_ds,
-                                      validation_loader=val_ds, epochs_num=n_epochs,
-                                      tensorboard_writer=tensorboard_summary_writer,
-                                      test_loader=test_ds,
-                                      logger=logger)
+                gnn_model, test_acc = train(gnn_model, train_loader=loader,
+                                            train_ds=train_ds,
+                                            validation_loader=val_ds, epochs_num=n_epochs,
+                                            tensorboard_writer=tensorboard_summary_writer,
+                                            test_loader=test_ds,
+                                            logger=logger)
 
                 if best_model_score < test_acc:
                     best_model_score = test_acc
                     with open(f"model_{gin_exp_name}.model", 'w') as f:
-                        torch.save(gin, f)
+                        torch.save(gnn_model, f)
+
+    gc.collect()
+    if computation_device != 'cpu':
+        torch.cuda.empty_cache()
+        logger(torch.cuda.memory_summary(device=None, abbreviated=False))
