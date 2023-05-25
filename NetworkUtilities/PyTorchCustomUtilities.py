@@ -342,9 +342,9 @@ def train(model, train_loader, train_ds, validation_loader, test_loader,
             data_y_as_onehot = torch.nn.functional.one_hot(data.y.to(torch.int64), num_classes=2).reshape(1, -1)
             loss = criterion(out, data_y_as_onehot.to(torch.float32))
             total_loss += loss
-            acc += accuracy(out[0].argmax(), data.y.to(torch.int64))
-            y_true.append(data.y.to(torch.int32))
-            y_pred.append(out[0].argmax())
+            acc += accuracy(copy.deepcopy(out[0]).to('cpu').argmax(), data.y.to(torch.int64))
+            y_true.append(data.y.to('cpu').to(torch.int32))
+            y_pred.append(out[0].to('cpu').argmax())
             loss.backward()
             optimizer.step()
             # break
@@ -439,8 +439,8 @@ def test(model, loader, logger: Callable = print):
         data_y_as_onehot = torch.nn.functional.one_hot(data.y.to(torch.int64), num_classes=2).reshape(1, -1)
         loss += criterion(out, data_y_as_onehot.to(torch.float32))
         acc += accuracy(out[0].argmax(), data.y.to(torch.int64))
-        y_true.append(data.y.to(torch.int32))
-        y_pred.append(out[0].argmax())
+        y_true.append(copy.deepcopy(data.y).to('cpu').to(torch.int32))
+        y_pred.append(copy.deepcopy(out[0]).to('cpu').argmax())
         # break
     cf_matrix = confusion_matrix([x[0] for x in y_true], y_pred)
 
