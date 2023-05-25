@@ -34,7 +34,7 @@ cp ~/GBVasculatureGraphsAnalysis/BrainVasculatureGraphData/torch_data_graph_anno
 
 ###/SSD
 module load anaconda				### load anaconda module (must be present when working with conda environments)
-source activate /home/yishaiaz/anaconda3/envs/torch_geo230_env				### activate a conda environment, replace my_env with your conda environment
+source activate torch_geo230_env				### activate a conda environment, replace my_env with your conda environment
 
 export SCRIPT_NAME=GINExperimentsManager.py
 export SCRIPT_PATH=~/VasculatureNetworkAnalysesTools/NetworkUtilities/${SCRIPT_NAME}
