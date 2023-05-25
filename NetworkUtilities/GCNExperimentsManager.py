@@ -56,7 +56,7 @@ if __name__ == '__main__':
     gnn_latent_space_size = 32
     batch_size = 1
     for gnn_type in (GCNWithDynamicLayersNumber, FixedGCN):
-        for k_hops in (10, 20):
+        for k_hops in (10, 15, 20, 25, 30):
             for type_of_label in ('single', 'majority'):
                 os.makedirs(os.path.join(scrum_working_dir, 'GCN_experiments'), exist_ok=True)
                 gin_exp_name = f'DL_{type(gnn_type).__name__}_GBM_BioMarker_Presence_Prediction_' \
