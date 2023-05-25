@@ -45,7 +45,7 @@ if __name__ == '__main__':
     logger(f"Read Graph, Metadata: #Nodes={torch_geometric_graph_data.num_nodes} | "
           f"#Edges={len(torch_geometric_graph_data.edge_index[0])}")
     # todo: convert all parameters to arguments with default values
-    # gin_type = GINWithDynamicLayersNumber
+    # gin_type = GCNWithDynamicLayersNumber
     use_node_features = True
     use_edge_features = True
     use_sampler = True
@@ -59,7 +59,7 @@ if __name__ == '__main__':
         for k_hops in (10, 15, 20, 25, 30):
             for type_of_label in ('single', 'majority'):
                 os.makedirs(os.path.join(scrum_working_dir, 'GCN_experiments'), exist_ok=True)
-                gin_exp_name = f'DL_{type(gnn_type).__name__}_GBM_BioMarker_Presence_Prediction_' \
+                gnn_exp_name = f'DL_{type(gnn_type).__name__}_GBM_BioMarker_Presence_Prediction_' \
                                                     f'used_sampler_{use_sampler}_' \
                                                     f'batch_size={batch_size}_' \
                                                     f'by_label_{type_of_label}_' \
@@ -72,8 +72,8 @@ if __name__ == '__main__':
                                                     f'use_edge_features={use_edge_features}' \
                                                     f'#EPOCHS={n_epochs}'
                 tensor_board_log_dir = os.path.join(scrum_working_dir,
-                                                    f'GIN_experiments',
-                                                    gin_exp_name)
+                                                    f'GCN_experiments',
+                                                    gnn_exp_name)
 
                 if type_of_label == "majority":
                     calc_items_label_func = MicroEnvironmentDataset.calc_subgraph_label_by_bio_marker_majority
@@ -145,7 +145,8 @@ if __name__ == '__main__':
                 # microenv_dataset_loader = DataLoader(microenv_dataset, batch_size=2, collate_fn=lambda x: x)
                 # logger(f"presplit target values count = {microenv_dataset.calc_target_statistics()}")
 
-                gnn_model = gnn_type(dim_h=gnn_latent_space_size, ds=train_ds, output_dim=2, n_hops=k_hops)
+                gnn_model = gnn_type(dim_h=gnn_latent_space_size, ds=train_ds, output_dim=2, n_hops=k_hops,
+                                     computation_device=computation_device)
                 gnn_model.to(computation_device)
 
                 tensorboard_summary_writer = SummaryWriter(log_dir=tensor_board_log_dir)
@@ -158,7 +159,7 @@ if __name__ == '__main__':
 
                 if best_model_score < test_acc:
                     best_model_score = test_acc
-                    with open(f"model_{gin_exp_name}.model", 'w') as f:
+                    with open(f"model_{gnn_exp_name}.model", 'w') as f:
                         torch.save(gnn_model, f)
 
     gc.collect()

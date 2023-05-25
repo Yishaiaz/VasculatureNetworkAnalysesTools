@@ -316,7 +316,6 @@ def train(model, train_loader, train_ds, validation_loader, test_loader,
     optimizer = torch.optim.Adam(model.parameters(),
                                  lr=0.01,
                                  weight_decay=0.01)
-
     model.train()
     # conf_mat_info = np.zeros(
     #     (2,2), dtype=float

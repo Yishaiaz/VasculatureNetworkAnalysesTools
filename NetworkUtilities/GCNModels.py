@@ -1,3 +1,4 @@
+from typing import *
 import torch
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential, BatchNorm1d, ReLU, Dropout
@@ -11,10 +12,12 @@ class GCNWithDynamicLayersNumber(torch.nn.Module):
     """GIN"""
 
     def __init__(self, dim_h, ds, output_dim, n_hops: int,
-                 linear_head_dropout: float = 0.5):
-        super(GCNWithDynamicLayersNumber, self).__init__()
+                 linear_head_dropout: float = 0.5,
+                 computation_device: Union[str, torch.DeviceObjType] = None):
+        super().__init__()
         # ds_num_node_features = get_number_of_node_features(ds) # no need for node feature in GCN
         self.n_hops = n_hops
+        self.computation_device = computation_device
         self.linear_head_dropout = linear_head_dropout
         self.conv1 = GCNConv(
             in_channels=-1,
@@ -32,14 +35,15 @@ class GCNWithDynamicLayersNumber(torch.nn.Module):
 
         self.lin1 = Linear(dim_h * self.n_hops, dim_h * self.n_hops)
         self.lin2 = Linear(dim_h * self.n_hops, output_dim)
+        self.cuda(device=self.computation_device)
 
     def forward(self, x, edge_index, batch):
         # Node embeddings
         prev_layer_output = self.conv1(x, edge_index)
         gcn_conv_layers_output_mean = [global_mean_pool(prev_layer_output, batch)]
         for gcn_conv_layer in self.gcn_conv_layers[1:]:
-            print(f"prev_layer_output device: {prev_layer_output.get_device()}\n"
-                  f"edge_index device: {edge_index.get_device()}\n")
+            # print(f"prev_layer_output device: {prev_layer_output.get_device()}\n"
+            #       f"edge_index device: {edge_index.get_device()}\n")
             gcn_conv_layer_out = gcn_conv_layer(prev_layer_output, edge_index)
             gcn_conv_layer_mean = global_mean_pool(gcn_conv_layer_out, batch)
             gcn_conv_layers_output_mean.append(gcn_conv_layer_mean)
@@ -61,9 +65,11 @@ class FixedGCN(torch.nn.Module):
     """GIN"""
 
     def __init__(self, dim_h, ds, output_dim, linear_head_dropout: float = 0.5,
+                 computation_device: Union[str, torch.DeviceObjType] = None,
                  *args, **kwargs):
         super(FixedGCN, self).__init__()
         fixed_n_hops = 3
+        self.computation_device = computation_device
         ds_num_node_features = get_number_of_node_features(ds)
         self.linear_head_dropout = linear_head_dropout
         self.conv1 = GCNConv(
@@ -82,6 +88,7 @@ class FixedGCN(torch.nn.Module):
 
         self.lin1 = Linear(dim_h * fixed_n_hops, dim_h * fixed_n_hops)
         self.lin2 = Linear(dim_h * fixed_n_hops, output_dim)
+        self.cuda(device=self.computation_device)
 
     def forward(self, x, edge_index, batch):
         # Node embeddings
