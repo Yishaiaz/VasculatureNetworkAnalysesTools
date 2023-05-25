@@ -25,16 +25,18 @@ class GCNWithDynamicLayersNumber(torch.nn.Module):
             improved=False,
             add_self_loops=True,
             normalize=True
-            )
+            ).to(device=computation_device)
         self.gcn_conv_layers = [self.conv1]
         for hop in range(n_hops - 1):
             self.gcn_conv_layers.append(GCNConv(
               in_channels=dim_h,
               out_channels=dim_h
-            ))
+            ).to(device=computation_device))
 
         self.lin1 = Linear(dim_h * self.n_hops, dim_h * self.n_hops)
+        self.lin1.to(device=computation_device)
         self.lin2 = Linear(dim_h * self.n_hops, output_dim)
+        self.lin2.to(device=computation_device)
         self.cuda(device=self.computation_device)
 
     def forward(self, x, edge_index, batch):
@@ -42,8 +44,8 @@ class GCNWithDynamicLayersNumber(torch.nn.Module):
         prev_layer_output = self.conv1(x, edge_index)
         gcn_conv_layers_output_mean = [global_mean_pool(prev_layer_output, batch)]
         for gcn_conv_layer in self.gcn_conv_layers[1:]:
-            # print(f"prev_layer_output device: {prev_layer_output.get_device()}\n"
-            #       f"edge_index device: {edge_index.get_device()}\n")
+            print(f"prev_layer_output device: {prev_layer_output.get_device()}\n"
+                  f"edge_index device: {edge_index.get_device()}\n")
             gcn_conv_layer_out = gcn_conv_layer(prev_layer_output, edge_index)
             gcn_conv_layer_mean = global_mean_pool(gcn_conv_layer_out, batch)
             gcn_conv_layers_output_mean.append(gcn_conv_layer_mean)
