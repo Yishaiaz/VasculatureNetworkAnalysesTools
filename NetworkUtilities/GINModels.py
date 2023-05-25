@@ -19,7 +19,7 @@ class GINWithDynamicLayersNumber(torch.nn.Module):
                        BatchNorm1d(dim_h), ReLU(),
                        Linear(dim_h, dim_h), ReLU()))
         self.gin_conv_layers = [self.conv1]
-        for n_hops in range(n_hops - 1):
+        for hop in range(n_hops - 1):
             self.gin_conv_layers.append(GINConv(
                 Sequential(Linear(dim_h, dim_h), BatchNorm1d(dim_h), ReLU(),
                            Linear(dim_h, dim_h), ReLU())))

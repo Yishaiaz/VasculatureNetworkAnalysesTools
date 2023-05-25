@@ -10,10 +10,10 @@ from PyTorchCustomUtilitiesForCluster import get_number_of_node_features
 class GCNWithDynamicLayersNumber(torch.nn.Module):
     """GIN"""
 
-    def __init__(self, dim_h, ds, output_dim, n_hops: int = 3,
+    def __init__(self, dim_h, ds, output_dim, n_hops: int,
                  linear_head_dropout: float = 0.5):
         super(GCNWithDynamicLayersNumber, self).__init__()
-        ds_num_node_features = get_number_of_node_features(ds)
+        # ds_num_node_features = get_number_of_node_features(ds) # no need for node feature in GCN
         self.n_hops = n_hops
         self.linear_head_dropout = linear_head_dropout
         self.conv1 = GCNConv(
@@ -24,14 +24,14 @@ class GCNWithDynamicLayersNumber(torch.nn.Module):
             normalize=True
             )
         self.gcn_conv_layers = [self.conv1]
-        for n_hops in range(n_hops - 1):
+        for hop in range(n_hops - 1):
             self.gcn_conv_layers.append(GCNConv(
               in_channels=dim_h,
               out_channels=dim_h
             ))
 
-        self.lin1 = Linear(dim_h * n_hops, dim_h * n_hops)
-        self.lin2 = Linear(dim_h * n_hops, output_dim)
+        self.lin1 = Linear(dim_h * self.n_hops, dim_h * self.n_hops)
+        self.lin2 = Linear(dim_h * self.n_hops, output_dim)
 
     def forward(self, x, edge_index, batch):
         # Node embeddings
