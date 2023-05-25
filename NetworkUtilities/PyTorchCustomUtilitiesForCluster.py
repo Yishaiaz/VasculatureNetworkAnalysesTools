@@ -322,6 +322,7 @@ def train(model, train_loader, train_ds, validation_loader, test_loader,
     #     (2,2), dtype=float
     # )
     for epoch in range(epochs_num + 1):
+        print(f"INFO - progress: #epoch={epoch}/{epochs_num}]")
         logger(f"Initiated epoch #{epoch}")
         total_loss = 0
         acc = 0
