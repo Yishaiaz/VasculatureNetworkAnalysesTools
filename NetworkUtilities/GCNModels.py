@@ -38,6 +38,8 @@ class GCNWithDynamicLayersNumber(torch.nn.Module):
         prev_layer_output = self.conv1(x, edge_index)
         gcn_conv_layers_output_mean = [global_mean_pool(prev_layer_output, batch)]
         for gcn_conv_layer in self.gcn_conv_layers[1:]:
+            print(f"prev_layer_output device: {prev_layer_output.get_device()}\n"
+                  f"edge_index device: {edge_index.get_device()}\n")
             gcn_conv_layer_out = gcn_conv_layer(prev_layer_output, edge_index)
             gcn_conv_layer_mean = global_mean_pool(gcn_conv_layer_out, batch)
             gcn_conv_layers_output_mean.append(gcn_conv_layer_mean)
