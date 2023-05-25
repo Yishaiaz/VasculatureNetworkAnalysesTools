@@ -1,5 +1,6 @@
 import copy
 import os
+import time
 import warnings
 from typing import *
 import numpy as np
@@ -23,6 +24,7 @@ from torch_geometric.loader.utils import (
 
     filter_hetero_data,
 )
+import datetime
 from torch.utils.data import Subset
 from torch_geometric.utils import k_hop_subgraph
 from torch_geometric.utils import mask_to_index, index_to_mask
@@ -327,6 +329,7 @@ def train(model, train_loader, train_ds, validation_loader, test_loader,
         acc = 0
         val_loss = 0
         val_acc = 0
+        epoch_start_time = datetime.datetime.now()
 
         y_true = []
         y_pred = []
@@ -377,9 +380,14 @@ def train(model, train_loader, train_ds, validation_loader, test_loader,
         plt.figure(figsize=(12, 7))
         conf_mat_as_img = sn.heatmap(df_cm, annot=True).get_figure()
 
+        epoch_end_time = datetime.datetime.now()
+        epoch_total_time = epoch_end_time - epoch_start_time
+        epoch_total_time_min = epoch_total_time.total_seconds()/60
+        epoch_total_time_str = f"{epoch_total_time_min:.5f} Minutes"
         if tensorboard_writer is not None:
             tensorboard_writer.add_scalar('meanLoss/val', val_loss, epoch)
             tensorboard_writer.add_scalar('Accuracy/val', float(f"{val_acc:.2f}"), epoch)
+            tensorboard_writer.add_scalar("Training Time Minutes", epoch_total_time_min, epoch)
             tensorboard_writer.add_figure("Validation confusion matrix", conf_mat_as_img, epoch)
             if epoch == 0:
                 labels_distribution_norm, labels_distribution = validation_loader.get_distribution()
@@ -394,7 +402,8 @@ def train(model, train_loader, train_ds, validation_loader, test_loader,
             acc = acc / len(train_loader)
             if len(acc.shape):
                 acc = acc[0]
-            logger(f'Epoch {epoch:>3} | Train Loss: {total_loss:.2f} '
+            logger(f'Epoch {epoch:>3} | training time={epoch_total_time_str}|'
+                   f'Train Loss: {total_loss:.2f} '
                   f'| Train Acc: {acc * 100:>5.2f}% '
                   f'| Val Loss: {val_loss:.2f} '
                   f'| Val Acc: {val_acc * 100:.2f}%')
