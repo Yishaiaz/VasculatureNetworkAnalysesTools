@@ -70,8 +70,8 @@ if __name__ == '__main__':
                                                     f'n_sptl_bins_per_dim={n_spatial_bins_per_dim}' \
                                                     f'val_sptl_bin_idx={val_spatial_bin_idx}' \
                                                     f'test_sptl_bin_idx={test_spatial_bin_idx}' \
-                                                    f'node_features={use_node_features}' \
-                                                    f'edge_features={use_edge_features}' \
+                                                    f'node_feat={use_node_features}' \
+                                                    f'edge_feat={use_edge_features}' \
                                                     f'#EPOCHS={n_epochs}'
                 tensor_board_log_dir = os.path.join(scrum_working_dir,
                                                     f'GCN_experiments',
