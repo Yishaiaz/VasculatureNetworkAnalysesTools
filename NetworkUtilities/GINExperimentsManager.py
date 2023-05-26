@@ -62,17 +62,17 @@ if __name__ == '__main__':
             for type_of_label in ('single', 'majority'):
                 os.makedirs(os.path.join(scrum_working_dir, 'GIN_experiments'), exist_ok=True)
                 gin_exp_name = f'DL_{type(gnn_type).__name__}_GBM_BioMarker_Presence_Prediction_' \
-                                                    f'used_sampler_{use_sampler}_' \
-                                                    f'batch_size={batch_size}_' \
-                                                    f'early_stopping={early_stopping}_' \
+                                                    f'sampler_{use_sampler}_' \
+                                                    f'|batch|={batch_size}_' \
+                                                    f'early_stop={early_stopping}_' \
                                                     f'by_label_{type_of_label}_' \
                                                     f'k_hops={k_hops}_' \
-                                                    f'gnn_latent_space_size={gin_latent_space_size}_' \
-                                                    f'n_spatial_bins_per_dim={n_spatial_bins_per_dim}' \
-                                                    f'val_spatial_bin_idx={val_spatial_bin_idx}' \
-                                                    f'test_spatial_bin_idx={test_spatial_bin_idx}' \
-                                                    f'use_node_features={use_node_features}' \
-                                                    f'use_edge_features={use_edge_features}' \
+                                                    f'gnn_latent_size={gin_latent_space_size}_' \
+                                                    f'n_sptl_bins_per_dim={n_spatial_bins_per_dim}' \
+                                                    f'val_sptl_bin_idx={val_spatial_bin_idx}' \
+                                                    f'test_sptl_bin_idx={test_spatial_bin_idx}' \
+                                                    f'node_features={use_node_features}' \
+                                                    f'edge_features={use_edge_features}' \
                                                     f'#EPOCHS={n_epochs}'
                 tensor_board_log_dir = os.path.join(scrum_working_dir,
                                                     f'GIN_experiments',
