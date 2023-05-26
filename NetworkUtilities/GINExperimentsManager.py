@@ -148,7 +148,11 @@ if __name__ == '__main__':
                 # microenv_dataset_loader = DataLoader(microenv_dataset, batch_size=2, collate_fn=lambda x: x)
                 # logger(f"presplit target values count = {microenv_dataset.calc_target_statistics()}")
 
-                gnn_model = gnn_type(dim_h=gin_latent_space_size, ds=train_ds, output_dim=2, n_hops=k_hops)
+                gnn_model = gnn_type(dim_h=gin_latent_space_size,
+                                     ds=train_ds,
+                                     output_dim=2,
+                                     n_hops=k_hops,
+                                     use_gine_conv=use_edge_features)
                 gnn_model.to(computation_device)
 
                 tensorboard_summary_writer = SummaryWriter(log_dir=tensor_board_log_dir)
