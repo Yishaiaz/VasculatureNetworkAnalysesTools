@@ -46,8 +46,8 @@ if __name__ == '__main__':
           f"#Edges={len(torch_geometric_graph_data.edge_index[0])}")
     # todo: convert all parameters to arguments with default values
     # gin_type = GCNWithDynamicLayersNumber
-    use_node_features = True
-    use_edge_features = True
+    use_node_features = False
+    use_edge_features = False
     use_sampler = True
     n_epochs = 50
     n_spatial_bins_per_dim = 2

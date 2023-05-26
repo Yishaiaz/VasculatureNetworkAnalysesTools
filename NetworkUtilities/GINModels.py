@@ -2,20 +2,23 @@ import torch
 from typing import *
 import torch.nn.functional as F
 from torch.nn import Linear, Sequential, BatchNorm1d, ReLU, Dropout
-from torch_geometric.nn import GCNConv, GINConv
+from torch_geometric.nn import GCNConv, GINConv, GINEConv
 from torch_geometric.nn import global_mean_pool, global_add_pool
 from torch import sum, max_pool1d
-from PyTorchCustomUtilities import get_number_of_node_features
+from PyTorchCustomUtilities import get_number_of_node_features, get_number_of_edge_features
 
 class GINWithDynamicLayersNumber(torch.nn.Module):
     """GIN"""
 
     def __init__(self, dim_h, ds, output_dim, n_hops: int = 3,
                  computation_device: Union[str, torch.DeviceObjType] = None,
-                 linear_head_dropout: float = 0.5):
+                 linear_head_dropout: float = 0.5,
+                 use_gine_conv: bool = True):
         super(GINWithDynamicLayersNumber, self).__init__()
         self.computation_device = computation_device
+        self.using_gine_conv = use_gine_conv
         ds_num_node_features = get_number_of_node_features(ds)
+        ds_num_edge_features = get_number_of_edge_features(ds)
         self.linear_head_dropout = linear_head_dropout
         self.conv1 = GINConv(
             Sequential(Linear(ds_num_node_features, dim_h),
@@ -23,9 +26,17 @@ class GINWithDynamicLayersNumber(torch.nn.Module):
                        Linear(dim_h, dim_h), ReLU())).to(device=computation_device)
         self.gin_conv_layers = [self.conv1]
         for hop in range(n_hops - 1):
-            self.gin_conv_layers.append(GINConv(
-                Sequential(Linear(dim_h, dim_h), BatchNorm1d(dim_h), ReLU(),
-                           Linear(dim_h, dim_h), ReLU())).to(device=computation_device))
+            if self.using_gine_conv:
+                self.gin_conv_layers.append(
+                    GINEConv(
+                        Sequential(Linear(dim_h, dim_h), BatchNorm1d(dim_h), ReLU(),
+                                   Linear(dim_h, dim_h), ReLU()),
+                        edge_dim=ds_num_edge_features
+                    ).to(device=computation_device))
+            else:
+                self.gin_conv_layers.append(GINConv(
+                    Sequential(Linear(dim_h, dim_h), BatchNorm1d(dim_h), ReLU(),
+                               Linear(dim_h, dim_h), ReLU())).to(device=computation_device))
 
         self.lin1 = Linear(dim_h * n_hops, dim_h * n_hops)
         self.lin1.to(device=computation_device)

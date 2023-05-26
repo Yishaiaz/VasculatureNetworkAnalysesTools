@@ -107,10 +107,10 @@ class MicroEnvironmentDataset(Dataset):
         self.label_distribution[1] = 0
         self.include_node_attributes = include_node_attributes
         self.include_edge_attributes = include_edge_attributes
-        if self.include_node_attributes:
+        if not self.include_node_attributes:
             self.org_graph.x = torch.zeros_like(self.org_graph.x, device=self.org_graph.x.device)
-        if self.include_edge_attributes:
-            self.org_graph.x = torch.zeros_like(self.org_graph.edge_attr,
+        if not self.include_edge_attributes:
+            self.org_graph.edge_attr = torch.zeros_like(self.org_graph.edge_attr,
                                                 device=self.org_graph.edge_attr.device)
 
         self.logger = logger
@@ -490,6 +490,13 @@ def get_number_of_node_features(input_dataset: Union[Subset, Dataset]):
     if isinstance(input_dataset, Subset):
         ds_to_query = ds_to_query.dataset
     return ds_to_query.num_node_features
+
+
+def get_number_of_edge_features(input_dataset: Union[Subset, Dataset]):
+    ds_to_query = input_dataset
+    if isinstance(input_dataset, Subset):
+        ds_to_query = ds_to_query.dataset
+    return ds_to_query.num_edge_features
 
 
 def partition_graph_by_regions(org_graph: Data,
