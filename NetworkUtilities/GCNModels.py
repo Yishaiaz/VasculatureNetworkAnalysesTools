@@ -78,16 +78,18 @@ class FixedGCN(torch.nn.Module):
             improved=False,
             add_self_loops=True,
             normalize=True
-            )
+            ).to(device=computation_device)
         self.gcn_conv_layers = [self.conv1]
         for n_hops in range(fixed_n_hops - 1):
             self.gcn_conv_layers.append(GCNConv(
               in_channels=dim_h,
               out_channels=dim_h
-            ))
+            ).to(device=computation_device))
 
         self.lin1 = Linear(dim_h * fixed_n_hops, dim_h * fixed_n_hops)
+        self.lin1.to(device=computation_device)
         self.lin2 = Linear(dim_h * fixed_n_hops, output_dim)
+        self.lin2.to(device=computation_device)
         self.cuda(device=self.computation_device)
 
     def forward(self, x, edge_index, batch):

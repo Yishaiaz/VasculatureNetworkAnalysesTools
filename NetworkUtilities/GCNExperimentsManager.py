@@ -53,7 +53,7 @@ if __name__ == '__main__':
     n_spatial_bins_per_dim = 2
     val_spatial_bin_idx, test_spatial_bin_idx = 0, 1
     best_model_score = 0
-    gnn_latent_space_size = 32
+    gnn_latent_space_size = 64
     batch_size = 1
     for gnn_type in (GCNWithDynamicLayersNumber, FixedGCN):
         for k_hops in (10, 15, 20, 25, 30):

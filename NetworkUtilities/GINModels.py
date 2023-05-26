@@ -20,15 +20,17 @@ class GINWithDynamicLayersNumber(torch.nn.Module):
         self.conv1 = GINConv(
             Sequential(Linear(ds_num_node_features, dim_h),
                        BatchNorm1d(dim_h), ReLU(),
-                       Linear(dim_h, dim_h), ReLU()))
+                       Linear(dim_h, dim_h), ReLU()).to(device=computation_device))
         self.gin_conv_layers = [self.conv1]
         for hop in range(n_hops - 1):
             self.gin_conv_layers.append(GINConv(
                 Sequential(Linear(dim_h, dim_h), BatchNorm1d(dim_h), ReLU(),
-                           Linear(dim_h, dim_h), ReLU())))
+                           Linear(dim_h, dim_h), ReLU())).to(device=computation_device))
 
         self.lin1 = Linear(dim_h * n_hops, dim_h * n_hops)
+        self.lin1.to(device=computation_device)
         self.lin2 = Linear(dim_h * n_hops, output_dim)
+        self.lin2.to(device=computation_device)
         self.cuda(device=self.computation_device)
 
     def forward(self, x, edge_index, batch):
@@ -68,15 +70,17 @@ class FixedGIN(torch.nn.Module):
         self.conv1 = GINConv(
             Sequential(Linear(ds_num_node_features, dim_h),
                        BatchNorm1d(dim_h), ReLU(),
-                       Linear(dim_h, dim_h), ReLU()))
+                       Linear(dim_h, dim_h), ReLU()).to(device=computation_device))
         self.conv2 = GINConv(
             Sequential(Linear(dim_h, dim_h), BatchNorm1d(dim_h), ReLU(),
-                       Linear(dim_h, dim_h), ReLU()))
+                       Linear(dim_h, dim_h), ReLU()).to(device=computation_device))
         self.conv3 = GINConv(
             Sequential(Linear(dim_h, dim_h), BatchNorm1d(dim_h), ReLU(),
-                       Linear(dim_h, dim_h), ReLU()))
+                       Linear(dim_h, dim_h), ReLU()).to(device=computation_device))
         self.lin1 = Linear(dim_h * 3, dim_h * 3)
+        self.lin1.to(device=computation_device)
         self.lin2 = Linear(dim_h * 3, output_dim)
+        self.lin2.to(device=computation_device)
         self.cuda(device=self.computation_device)
 
     def forward(self, x, edge_index, batch):
