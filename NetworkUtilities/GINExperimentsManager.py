@@ -54,6 +54,7 @@ if __name__ == '__main__':
     n_spatial_bins_per_dim = 2
     val_spatial_bin_idx, test_spatial_bin_idx = 0, 1
     best_model_score = 0
+    early_stopping = 10  # number of epochs with no improvement until early stop
     gin_latent_space_size = 64
     batch_size = 1
     for gnn_type in (GINWithDynamicLayersNumber, FixedGIN):
@@ -63,6 +64,7 @@ if __name__ == '__main__':
                 gin_exp_name = f'DL_{type(gnn_type).__name__}_GBM_BioMarker_Presence_Prediction_' \
                                                     f'used_sampler_{use_sampler}_' \
                                                     f'batch_size={batch_size}_' \
+                                                    f'early_stopping={early_stopping}_' \
                                                     f'by_label_{type_of_label}_' \
                                                     f'k_hops={k_hops}_' \
                                                     f'gnn_latent_space_size={gin_latent_space_size}_' \
@@ -155,6 +157,7 @@ if __name__ == '__main__':
                                             validation_loader=val_ds, epochs_num=n_epochs,
                                             tensorboard_writer=tensorboard_summary_writer,
                                             test_loader=test_ds,
+                                            early_stopping_epochs_with_no_improvement_num=early_stopping,
                                             logger=logger)
 
                 if best_model_score < test_acc:

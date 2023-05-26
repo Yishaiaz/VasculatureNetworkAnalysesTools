@@ -313,6 +313,7 @@ def get_hist_image_as_np_array(values: Iterable,
 def train(model, train_loader, train_ds, validation_loader, test_loader,
           epochs_num: int = 100,
           tensorboard_writer: SummaryWriter = None,
+          early_stopping_epochs_with_no_improvement_num: int = float('inf'),
           logger: Callable = print):
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(),
@@ -322,6 +323,7 @@ def train(model, train_loader, train_ds, validation_loader, test_loader,
     # conf_mat_info = np.zeros(
     #     (2,2), dtype=float
     # )
+    n_epochs_with_no_improvement, best_epoch_acc = 0, float('-inf')
     for epoch in range(epochs_num + 1):
         print(f"INFO - progress: #epoch={epoch}/{epochs_num}]")
         logger(f"Initiated epoch #{epoch}")
@@ -407,6 +409,16 @@ def train(model, train_loader, train_ds, validation_loader, test_loader,
                   f'| Train Acc: {acc * 100:>5.2f}% '
                   f'| Val Loss: {val_loss:.2f} '
                   f'| Val Acc: {val_acc * 100:.2f}%')
+
+        if acc > best_epoch_acc:
+            best_epoch_acc = acc
+            n_epochs_with_no_improvement = 0
+        else:
+            n_epochs_with_no_improvement += 1
+
+        if n_epochs_with_no_improvement>=early_stopping_epochs_with_no_improvement_num:
+            logger(f"early stopping at epoch #{epoch}/{epochs_num}, curr acc={acc}")
+            break
 
     test_loss, test_acc, conf_mat = test(model, test_loader,
                                          logger=logger)
