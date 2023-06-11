@@ -98,26 +98,25 @@ def convert_gt_to_nx(gt_graph: gt.Graph,
 
 if __name__ == '__main__':
     # this demo validates performance, and compares execution speed of both methods.
-    t_sm_graph = nx.Graph()
-    graph_file = "/Users/leahbiram/Desktop/vasculature_data/firstGBMscanGraph.gt"
-    gt_graph = gt.load_graph(graph_file)
-    nx_graph = convert_gt_to_nx(gt_graph,
-                                vertices_property_names_to_add=["coordinates", "radii"],
-                                edges_property_names_to_add=["length", "radii"])
+#    graph_file = "/Users/leahbiram/Desktop/vasculature_data/firstGBMscanGraph.gt"
+#    gt_graph = gt.load_graph(graph_file)
+#    nx_graph_1 = convert_gt_to_nx(gt_graph,
+#                                vertices_property_names_to_add=["coordinates", "radii"],
+#                                edges_property_names_to_add=["length", "radii"])
+
+    nx_graph = nx.read_gpickle("../ExtractedFeatureFiles/full_graph.gpickle")
     # large network (to compare runtime of methods on a large scale):
     v_searcher = NetworkVoxelSearcher(complete_network=nx_graph, vertex_coordinates_attribute_name="coordinates")
-    dist_thresh = 100
+    dist_thresh = 50
     st_time = time.time()
     kdtree_found_near_vertices_ids = []
     for node in tqdm(nx_graph.nodes):
-        print(node)
         kdtree_found_near_vertices_ids.append(np.array(v_searcher.find_nodes_within_distance_kdtree(node, dist_thresh, False)))
         #all_subgraphs.append(GraphView(gt_graph, vfilt=lambda v: v in kdtree_found_near_vertices_ids))
     kd_end_time = time.time() - st_time
     print(
         f"KDtree-based execution time: {kd_end_time}\n")
-    with open('./voxel_subgraphs_100.pkl', 'wb') as file:
+    with open('../ExtractedFeatureFiles/full_voxel_subgraphs_50.pkl', 'wb') as file:
         # A new file will be created
         pickle.dump(kdtree_found_near_vertices_ids, file)
-
 
